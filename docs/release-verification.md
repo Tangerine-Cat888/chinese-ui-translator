@@ -1,3 +1,19 @@
+# 0.3.4 发布验证
+
+2026-11-08，源码标签 `0.3.4` 对应 `e82ad32eb0b1c21eaf39e35b037af5ab71b5131f`。
+
+- 设置页标签/说明与控件垂直居中，统一控件宽度与间距。0.3.3 发布后官方提示 `:has()` 性能警告，本版改为明确容器类；已发布的 0.3.3 保留原样。
+- [CI](https://github.com/Tangerine-Cat888/chinese-ui-translator/actions/runs/42480851647)通过类型检查、lint、52 项测试、audit（零漏洞）、依赖树、构建、打包和哈希核验。
+- 两次 Windows 全新目录构建与 Linux CI 产物一致。四个发行附件来自 CI，草稿校验后公开，回下载哈希和 main.js/styles.css 来源证明均通过。
+- 本版独立 Windows Obsidian 1.15.0 新库重跑：首次无凭证/词典、配置与模型列表、翻译/补翻/恢复、离线、取消失败重试、控件值与事件、菜单、弹出窗口关闭重开、卸载、明暗/窄屏/键盘。笔记和测试插件文件不变。服务使用本地模拟端点。
+- 实机确认明确容器类生效、背景透明、无外层 padding、行垂直居中。当前个人安装已更新 0.3.4 并启用，4 份词典和现有配置哈希不变，重载无捕获错误。
+
+macOS/Linux 未实机验收，真实付费供应商和客户端目录搜索未测；移动端不支持。ESLint 9 上游弃用受官方 peer 约束。独立验收材料保存在本地 `work/release-0.3.4/`，不公开个人数据。
+
+官方 0.3.4 检查 Completed，main.js 逐字节复现，无 Error 和 CSS 警告。仅保留已披露的 Direct Filesystem Access Warning 与额外 ZIP Recommendation。
+
+---
+
 # 0.3.2 发布验证
 
 官方 [公开条目](https://community.obsidian.md/plugins/chinese-ui-translator) 已发布；0.3.2 检查为 **Completed**，官方构建复现 main.js 逐字节一致，无 Error。唯一 Warning 为已披露的库外文件访问；额外 ZIP 属于 Recommendation。客户端内搜索未单独验收。
