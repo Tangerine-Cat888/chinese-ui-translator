@@ -69,7 +69,7 @@ export class LocalUi {
    const option=select.selectedOptions[0];if(!option||!textNodes(option).some(node=>this.text.has(node)))return;
    const property='--dropdown-fitted-width',current=select.style.getPropertyValue(property);if(!current)return;
    const old=this.widths.get(select),source=old&&current===old.applied?old.source:current;
-   const style=select.ownerDocument.defaultView!.getComputedStyle(select),context=select.ownerDocument.createElement('canvas').getContext('2d');if(!context)return;
+   const style=select.ownerDocument.defaultView!.getComputedStyle(select),context=createEl('canvas').getContext('2d');if(!context)return;
    context.font=style.font||`${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
    const padding=[style.paddingLeft,style.paddingRight,style.borderLeftWidth,style.borderRightWidth].reduce((sum,value)=>sum+(Number.parseFloat(value)||0),0);
    const width=Math.ceil(context.measureText(option.textContent||'').width+padding+2),applied=`${Math.max(Number.parseFloat(source)||0,width)}px`;
