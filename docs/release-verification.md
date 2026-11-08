@@ -1,3 +1,18 @@
+# 0.3.2 发布验证
+
+2026-11-08，源码标签 `0.3.2` 对应 `2e1b15f2d3210d8c4644fa9c3087bbecfdf393ff`。
+
+- [CI](https://github.com/Tangerine-Cat888/chinese-ui-translator/actions/runs/42475720522)通过干净安装、完整类型感知 lint、类型检查、52 项测试、audit、依赖树、构建、打包与哈希核验。
+- 两套独立 Windows 干净构建和 Linux CI 产物一致，发行附件取自 CI。标准三附件及 ZIP 的 SHA256 见根目录 release.sha256。
+- [0.3.2 发行](https://github.com/Tangerine-Cat888/chinese-ui-translator/releases/tag/0.3.2)于 2026-11-08 19:28:16 UTC+8 公开，四个附件回下载哈希一致。main.js/styles.css 的 GitHub artifact attestation 已使用 gh attestation verify 验证。
+- Windows Obsidian 1.15.0 的新测试库完成安装、实际按钮配置与翻译、模型列表、增量、恢复、离线重载、窗口重开、卸载、取消失败重试、明暗和窄屏验收。旧 ID 配置迁移实机通过，旧文件未改变。测试仅使用本地模拟服务。
+- 官方 0.3.1 源码检查指出的错误已修复：JSON 类型验证、设置定义 API、DOM helper、主窗口文档引用、时钟、注释描述、Promise 返回和废弃 API。英文 README 已补齐。源码不再禁用官方禁止关闭的规则。
+- 库外词典需要 Node 文件系统权限，已在 README 与官方描述披露；ZIP 是手动安装便利包，不用于官方自动安装。官方目录审核与 GitHub 发行状态分开记录。
+
+macOS/Linux 未实机测试；不支持手机；未使用真实付费供应商账号验证；ESLint 9 上游弃用提示受官方插件 peer 依赖限制，audit 无漏洞。
+
+---
+
 # 0.3.1 发布验证
 
 日期：2026-11-08。
