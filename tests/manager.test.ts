@@ -6,6 +6,35 @@ vi.mock('obsidian',()=>({
  PluginSettingTab:class{},Setting:class{},Notice:class{},requestUrl:vi.fn()
 }));
 import Manager from '../src/manager';import {requestUrl} from 'obsidian';
+test('role-aware translation and numeric templates persist, scope owned views, and reject broken model placeholders',async()=>{
+ const old=process.env.APPDATA;process.env.APPDATA=resolve('tests/artifacts','manager-context-'+Date.now());
+ const root=document.createElement('div');root.innerHTML='<button>Open</button><div class="setting-item-description">Open</div><div class="setting-item-description">Found 3 results</div>';document.body.append(root);
+ const owned=document.createElement('div');owned.className='workspace-leaf-content';owned.dataset.type='fixture-view';owned.innerHTML='<button>Open</button>';
+ const unknown=owned.cloneNode(true)as HTMLElement;document.body.append(owned,unknown);
+ const instance={};const read=vi.fn().mockResolvedValue('x.setName("Open");x.setDesc(`Found ${count} results`);');
+ const app:any={vault:{configDir:'.obsidian',adapter:{getBasePath:()=>'/fixture-context',read}},plugins:{plugins:{fixture:instance},manifests:{fixture:{id:'fixture',name:'Fixture Plugin',version:'1'},other:{id:'other',name:'Other Plugin',version:'1'}}},setting:{activeTab:{id:'fixture',containerEl:root}},workspace:{containerEl:document.body,on:()=>({}),onLayoutReady:(f:()=>void)=>f(),iterateAllLeaves:(f:(leaf:any)=>void)=>{f({view:{containerEl:owned,plugin:instance}});f({view:{containerEl:unknown}});}}};
+ vi.mocked(requestUrl).mockReset();
+ vi.mocked(requestUrl).mockImplementation((async(args:any)=>{
+  const items=JSON.parse(JSON.parse(args.body).messages[1].content);
+  return {status:200,json:{choices:[{message:{content:JSON.stringify(Object.fromEntries(items.map((item:any)=>[item.id,item.text.startsWith('Found ')?'找到 ⟦BA0⟧ 个结果':item.text.startsWith('Processed ')?'错误的无占位符译文':item.context.includes('UI role: description')?'开启状态':'打开'])))}}]}};
+ })as any);
+ let p=new Manager(app,{id:'bilingual-assistant'}as any);
+ try{
+  await p.onload();await p.saveService('custom',{baseUrl:'https://example.invalid',model:'test',apiKey:'',plan:'free'});
+  await p.catalog.save({pluginId:'other',version:'1',sourceHash:'test',language:'简体中文',enabled:true,updatedAt:'now',strings:{Open:'展开'}});
+  expect(await p.translatePlugin('fixture')).toEqual({total:2,translated:3});
+  expect(root.querySelector('button')!.textContent).toBe('打开');expect(root.querySelector('.setting-item-description')!.textContent).toBe('开启状态');
+  expect(owned.textContent).toBe('打开');expect(unknown.textContent).toBe('Open');
+  const count=root.querySelectorAll('.setting-item-description')[1];count.textContent='Found 15 results';
+  const calls=vi.mocked(requestUrl).mock.calls.length;p.onunload();
+  p=new Manager(app,{id:'bilingual-assistant'}as any);await p.onload();
+  expect(count.textContent).toBe('找到 15 个结果');expect(root.querySelector('.setting-item-description')!.textContent).toBe('开启状态');
+  expect(await p.translatePlugin('fixture')).toEqual({total:2,translated:0});expect(requestUrl).toHaveBeenCalledTimes(calls);
+  const saved=JSON.stringify(p.catalog.get('fixture','简体中文'));
+  read.mockResolvedValue('x.setName("Open");x.setDesc(`Found ${count} results`);x.setDesc(`Processed ${count} items`);');
+  await expect(p.translatePlugin('fixture')).rejects.toThrow('占位符');expect(JSON.stringify(p.catalog.get('fixture','简体中文'))).toBe(saved);
+ }finally{p.onunload();root.remove();owned.remove();unknown.remove();if(old===undefined)delete process.env.APPDATA;else process.env.APPDATA=old;vi.mocked(requestUrl).mockReset();}
+});
 test('new plugin refuses to run alongside the enabled old ID',async()=>{
  const p=new Manager({plugins:{enabledPlugins:new Set(['bilingual-assistant'])}}as any,{id:'chinese-ui-translator'}as any);
  await expect(p.onload()).rejects.toThrow('旧版汉化插件仍启用');p.onunload();
@@ -35,5 +64,17 @@ test('one-click persists translations; reopen, reload and incremental scan make 
   expect(await p.translatePlugin('fixture')).toEqual({total:1,translated:0});expect(requestUrl).toHaveBeenCalledTimes(calls);
   await p.setEnabled('fixture',false);expect(root.textContent).toContain('Enable feature');
   await p.setEnabled('fixture',true);expect(root.textContent).toContain('启用功能');expect(write).not.toHaveBeenCalled();
+  // A runtime-only label must survive leaving the settings tab to click supplement.
+  const runtime=document.createElement('div');runtime.className='setting-item-description';runtime.textContent='Runtime connection status';root.append(runtime);
+  const input=document.createElement('input');input.value='Private credential';root.append(input);
+  p.refresh();expect(requestUrl).toHaveBeenCalledTimes(calls);
+  app.setting.activeTab={id:'bilingual-assistant',containerEl:document.createElement('div')};p.refresh();
+  expect(await p.translatePlugin('fixture')).toEqual({total:2,translated:1});
+  expect(p.catalog.get('fixture','简体中文')!.strings).not.toHaveProperty('Private credential');
+  runtime.remove();const afterSupplement=vi.mocked(requestUrl).mock.calls.length;
+  expect(await p.translatePlugin('fixture')).toEqual({total:2,translated:0});expect(requestUrl).toHaveBeenCalledTimes(afterSupplement);
+  const modal=document.createElement('div');modal.className='modal';modal.innerHTML='<div class="modal-title">Enable feature</div><input value="Enable feature">';document.body.append(modal);
+  p.refresh();expect(modal.querySelector('.modal-title')!.textContent).toBe('启用功能');expect(modal.querySelector('input')!.value).toBe('Enable feature');
+  await p.setEnabled('fixture',false);expect(modal.querySelector('.modal-title')!.textContent).toBe('Enable feature');modal.remove();
  }finally{p.onunload();root.remove();if(old===undefined)delete process.env.APPDATA;else process.env.APPDATA=old;}
 });

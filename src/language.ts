@@ -1,6 +1,6 @@
 import {tokenizer} from 'acorn';
 import {yieldToUi} from './clock';
-import {isUiCandidate} from './scanner';
+import {isUiCandidate,isLabelText} from './scanner';
 export interface LanguageResult {kind:'english'|'chinese'|'unknown';english:number;chinese:number}
 /** Inspect UI literals and bundled Chinese localization; ignore identifiers and log noise. */
 export async function detectInterfaceLanguage(source:string,names:Set<string>):Promise<LanguageResult>{
@@ -15,7 +15,7 @@ export async function detectInterfaceLanguage(source:string,names:Set<string>):P
    const ui=(b?.label==='('&&typeof a?.value==='string'&&/^(setName|setDesc|setTitle|setButtonText|setTooltip|setPlaceholder|setText)$/.test(a.value))||(b?.label===':'&&typeof a?.value==='string'&&/^(text|title|label|placeholder|description)$/.test(a.value));
    if(!names.has(s)&&s.length>=2&&s.length<=1500){
     if((s.match(/[\u3400-\u9fff]/g)||[]).length>=2){zh.add(s);if(ui)uiZh.add(s);}
-    else if(s!=='use strict'&&isUiCandidate(s,names)){en.add(s);if(ui)uiEn.add(s);}
+    else if(s!=='use strict'&&(ui?isLabelText(s,names):isUiCandidate(s,names))){en.add(s);if(ui)uiEn.add(s);}
    }
   }
   recent.push({label:token.type.label,value:token.value});if(recent.length>3)recent.shift();

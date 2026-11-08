@@ -1,4 +1,4 @@
-# 市场资料 — 0.3.4
+# 市场资料 — 0.3.5
 
 名称：Chinese UI Translator
 
@@ -44,6 +44,10 @@ Translate plugin interfaces into Simplified Chinese and reuse saved dictionaries
 
 本轮真实测试为 Windows / Obsidian 1.15.0，包含默认明暗主题和窄窗口。macOS、Linux、其他主题与更高宿主版本尚未实机验证；移动端不支持。没有正文翻译功能。
 
+### 0.3.5 补漏与上下文
+
+先访问目标插件设置页，再主动补翻。可识别标签仅暂存在内存；角色上下文仅发送给 AI 服务。说明和提示可能包含动态上下文，不能保证过滤所有敏感内容。支持已确认插件区域中的受限数字模板，冲突或来源不明时保留原文。
+
 ### 截图
 
 1. `screenshots/overview-light.png`：真实设置页、已保存词典与恢复英文按钮。
@@ -52,7 +56,11 @@ Translate plugin interfaces into Simplified Chinese and reuse saved dictionaries
 
 截图来自独立验收库，使用模拟翻译服务和测试插件，不展示用户笔记、账户或密钥。模拟内容不代表真实模型的翻译质量。
 
-## 提交状态
+## 0.3.5 提交状态
+
+本轮发布验收完成，等待推送后的云端产物核对和官方检查；最终结果见 release-verification.md。
+
+## 0.3.4 历史提交状态
 
 源码与 0.3.4 已公开发布：
 

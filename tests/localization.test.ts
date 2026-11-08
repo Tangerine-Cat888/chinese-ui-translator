@@ -4,9 +4,32 @@ import {resolve} from 'node:path';
 import {readFile} from 'node:fs/promises';
 import {Catalog,type Pack} from '../src/catalog';
 import {extractLabels} from '../src/scanner';
-import {LocalUi} from '../src/local-ui';
+import {LocalUi,collectUiLabels} from '../src/local-ui';
 import {detectInterfaceLanguage} from '../src/language';
 const base=resolve('tests/artifacts','catalog-'+Date.now());
+test('known display arguments include short, lowercase, mixed and static template labels without option IDs',async()=>{
+ const source='x.setButtonText("OK"); x.setName("save"); x.setDesc("启用 API"); x.setTitle(`UI`); x.addOption("private_id", "PDF"); x.createEl("div",{text:"AI",cls:"secret"}); x.addOptions({raw:"on"}); const internal="raw";';
+ expect(await extractLabels(source,new Set())).toEqual(['OK','save','启用 API','UI','PDF','AI','on']);
+ expect((await detectInterfaceLanguage('x.setName("save");x.setButtonText("OK");',new Set())).kind).toBe('english');
+});
+test('split labels translate as a whole, preserve element identity, and restore original nodes',()=>{
+ const root=document.createElement('div');document.body.append(root);
+ root.innerHTML='<div class="setting-item-description">Enable <strong>cloud sync</strong></div><summary>Advanced options</summary><input value="private input" placeholder="API token"><div class="markdown-rendered"><button>Private note</button></div><option>Implicit value</option>';
+ const original=root.innerHTML,strong=root.querySelector('strong');
+ const candidates=collectUiLabels(root,new Set());
+ expect(candidates).toContain('Enable cloud sync');expect(candidates).toContain('API token');
+ expect(candidates).not.toContain('private input');expect(candidates).not.toContain('Private note');expect(candidates).not.toContain('Implicit value');
+ const session=new LocalUi(root,text=>text==='Enable cloud sync'?'启用云同步':text==='Advanced options'?'高级选项':undefined);
+ expect(root.querySelector('.setting-item-description')!.textContent).toBe('启用云同步');expect(root.querySelector('strong')).toBe(strong);
+ session.scan();expect(session.collect(new Set())).toContain('Enable cloud sync');expect(session.collect(new Set())).not.toContain('启用云同步');
+ session.stop();expect(root.innerHTML).toBe(original);root.remove();
+});
+test('host changes to a split label release remaining patches without overwriting the new text',()=>{
+ const root=document.createElement('div');root.innerHTML='<button>Enable <strong>sync</strong></button>';
+ const session=new LocalUi(root,text=>text==='Enable sync'?'启用同步':undefined);
+ root.querySelector('strong')!.textContent='backup';session.scan();
+ expect(root.textContent).toBe('Enable backup');session.stop();expect(root.textContent).toBe('Enable backup');
+});
 test('option labels without explicit values keep their original submitted value',()=>{
  const root=document.createElement('div');document.body.append(root);
  root.innerHTML='<select><option>Open dashboard</option><option value="explicit">Open dashboard</option></select>';

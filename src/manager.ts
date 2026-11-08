@@ -4,15 +4,17 @@ import {Engine,type Config,type Transport} from './core';
 import {SettingsStore} from './storage';
 import {Catalog} from './catalog';
 import {extractLabels} from './scanner';
-import {LocalUi} from './local-ui';
+import {LocalUi,collectUiLabels} from './local-ui';
 import {detectInterfaceLanguage,type LanguageResult} from './language';
 import {defaultClock,type Clock} from './clock';
 import {services,serviceTransport,engineConfig,listServiceModels,type ServiceId,type ServiceProfile} from './services';
 import {defaults as preferenceDefaults,loadPreferences,profileFor,type Preferences} from './preferences';
+import {viewOwner,type UiEntry} from './ui-context';
+import {templateSource} from './numeric-template';
 
 interface Settings extends Config {uiEnabled:boolean;rememberApiKey:boolean;excludedPlugins:string}
 const defaults:Settings={endpoint:'',model:'',apiKey:'',language:'简体中文',online:false,glossary:{},uiEnabled:true,rememberApiKey:false,excludedPlugins:''};
-interface Internals {setting?:{activeTab?:{id:string;containerEl:HTMLElement};modalEl?:HTMLElement;open?:()=>void;close?:()=>void;openTabById?:(id:string)=>void};plugins:{manifests:Record<string,PluginManifest & {dir?:string}>;enabledPlugins?:Set<string>};}
+interface Internals {setting?:{activeTab?:{id:string;containerEl:HTMLElement};modalEl?:HTMLElement;open?:()=>void;close?:()=>void;openTabById?:(id:string)=>void};plugins:{manifests:Record<string,PluginManifest & {dir?:string}>;enabledPlugins?:Set<string>;plugins?:Record<string,unknown>};}
 export default class TranslationManager extends Plugin {
  settings:Settings={...defaults};store!:SettingsStore;catalog!:Catalog;
  preferences:Preferences=preferenceDefaults();serviceBusy=false;private preferencesReady=false;
@@ -22,6 +24,19 @@ export default class TranslationManager extends Plugin {
  private clock:Clock=defaultClock;
  private status?:HTMLElement;private tab!:ManagerSettings;private catalogReady=false;
  private languages=new Map<string,Promise<LanguageResult>>();
+ private observedLabels=new Map<string,Set<string>>();
+ private observedContexts=new Map<string,Map<string,UiEntry>>();
+ private rememberSettings(){
+  const tab=this.host.setting?.activeTab;if(this.closed||!tab?.containerEl?.isConnected||tab.id===this.manifest.id)return;
+  const manifest=this.host.plugins.manifests[tab.id];if(!manifest)return;
+  const key=tab.id+'@'+manifest.version;const saved=this.observedLabels.get(key)||new Set<string>();
+  const session=this.sessions.get(tab.containerEl)?.session;
+  const entries=this.observedContexts.get(key)||new Map<string,UiEntry>();
+  const remember=(entry:UiEntry)=>{if(entries.size<3000)entries.set(JSON.stringify([entry.text,entry.role]),entry);};
+  for(const label of session?session.collect(this.names(),remember):collectUiLabels(tab.containerEl,this.names(),undefined,undefined,remember)){if(saved.size>=3000)break;saved.add(label);}
+  this.observedContexts.set(key,entries);
+  this.observedLabels.set(key,saved);
+ }
  private get host(){return this.app as unknown as Internals;}
  manifests(){return Object.values(this.host.plugins.manifests).filter(m=>m.id!==this.manifest.id&&m.id!=='bilingual-assistant').sort((a,b)=>a.name.localeCompare(b.name));}
  names(){return new Set(this.manifests().flatMap(m=>[m.name,m.id]));}
@@ -32,7 +47,7 @@ export default class TranslationManager extends Plugin {
    if(this.catalog.get(manifest.id,this.settings.language)){visible.push(manifest);continue;}
    const key=manifest.id+'@'+manifest.version;
    let job=this.languages.get(key);if(!job){job=(async()=>{try{const source=await this.app.vault.adapter.read(`${manifest.dir||`${this.app.vault.configDir}/plugins/${manifest.id}`}/main.js`);return await detectInterfaceLanguage(source,names);}catch{return {kind:'unknown',english:0,chinese:0};}})();this.languages.set(key,job);}
-   const result=await job;if(result.kind==='english')visible.push(manifest);else if(result.kind==='chinese')chinese++;else unknown++;
+   const result=await job;if(result.kind==='english'||(result.kind==='unknown'&&this.observedLabels.get(key)?.size))visible.push(manifest);else if(result.kind==='chinese')chinese++;else unknown++;
   }
   return {visible,chinese,unknown};
  }
@@ -69,6 +84,7 @@ export default class TranslationManager extends Plugin {
   const owner=this;
   for(const name of ['open','close','openTabById'] as const){const original=setting[name];if(typeof original!=='function')continue;
    const wrapped=function(this:unknown,...args:unknown[]){
+    owner.rememberSettings();
     // Compare against the main document, never the active popout being closed.
       if(name==='close'){owner.closed=true;const doc=setting.activeTab?.containerEl?.ownerDocument||setting.modalEl?.ownerDocument;if(doc&&doc!==owner.app.workspace.containerEl.ownerDocument)owner.release(doc);else owner.stopSessions();}
     const result:unknown=Reflect.apply(original,this,args);if(name==='open')owner.closed=false;owner.schedule();return result;
@@ -82,19 +98,33 @@ export default class TranslationManager extends Plugin {
  private stopSessions(){this.sessions.forEach(r=>r.session.stop());this.sessions.clear();}
  refresh(){
   if(this.stopped)return;
+  this.rememberSettings();
   const roots=new Map<HTMLElement,string>();const tab=this.host.setting?.activeTab;
   if(!this.closed&&tab?.containerEl?.isConnected){this.watch(tab.containerEl.ownerDocument);if(tab.id!==this.manifest.id&&this.host.plugins.manifests[tab.id])roots.set(tab.containerEl,tab.id);}
-  this.app.workspace.iterateAllLeaves(leaf=>this.watch(leaf.view.containerEl.ownerDocument));
+  const owners=new Map<HTMLElement,string>();
+  const installed=new Set(this.manifests().map(m=>m.id));
+  this.app.workspace.iterateAllLeaves(leaf=>{
+   this.watch(leaf.view.containerEl.ownerDocument);
+   const id=viewOwner(leaf.view,this.host.plugins.plugins||{},installed);
+   const root=leaf.view.containerEl.closest<HTMLElement>('.workspace-leaf-content[data-type]')||leaf.view.containerEl.querySelector<HTMLElement>('.workspace-leaf-content[data-type]');
+   if(id&&root)owners.set(root,id);
+  });
   for(const doc of this.docs.keys()){
    doc.querySelectorAll<HTMLElement>('.menu:not(.suggestion-container)').forEach(root=>roots.set(root,''));
+   // Dialog ownership is unknown: use only unambiguous saved labels, as for menus.
+   doc.querySelectorAll<HTMLElement>('.modal:not(.mod-settings),[role="dialog"]').forEach(root=>{
+    if(root.querySelector('.vertical-tab-content-container')||[...roots.keys()].some(existing=>root.contains(existing)||existing.contains(root)))return;
+    roots.set(root,'');
+   });
    // Only explicit controls in custom plugin views; never Markdown or file titles.
    const builtin=new Set(['markdown','file-explorer','search','backlink','outgoing-link','tag','outline','canvas','graph','localgraph','bookmarks','empty','pdf','image','audio','video']);
-   doc.querySelectorAll<HTMLElement>('.workspace-leaf-content[data-type]').forEach(root=>{if(!builtin.has(root.dataset.type||''))roots.set(root,'');});
+   doc.querySelectorAll<HTMLElement>('.workspace-leaf-content[data-type]').forEach(root=>{if(!builtin.has(root.dataset.type||''))roots.set(root,owners.get(root)||'');});
   }
   if(!this.settings.uiEnabled)roots.clear();
-  const names=this.names(),installed=new Set(this.manifests().map(m=>m.id));
+  for(const [root,id] of roots)if(!id&&[...roots].some(([parent,owner])=>owner&&parent!==root&&parent.contains(root)))roots.delete(root);
+  const names=this.names();
   for(const [root,record] of this.sessions)if(!root.isConnected||!roots.has(root)||roots.get(root)!==record.id){record.session.stop();this.sessions.delete(root);}
-  for(const [root,id] of roots)if(!this.sessions.has(root))this.sessions.set(root,{id,session:new LocalUi(root,text=>this.catalog.lookup(text,this.settings.language,id||undefined,names,installed),this.clock)});
+  for(const [root,id] of roots)if(!this.sessions.has(root))this.sessions.set(root,{id,session:new LocalUi(root,(text,role)=>this.catalog.lookup(text,this.settings.language,id||undefined,names,installed,role),this.clock)});
   this.updateStatus();
  }
  private updateStatus(){if(this.status)this.status.textContent=this.busyId?'插件汉化：处理中':this.settings.uiEnabled?'插件汉化：已开启':'插件汉化：已暂停';}
@@ -117,21 +147,32 @@ export default class TranslationManager extends Plugin {
    report('正在扫描插件界面词条…');
    const path=`${manifest.dir||`${this.app.vault.configDir}/plugins/${id}`}/main.js`;
    const source=await this.app.vault.adapter.read(path);const hash=createHash('sha256').update(source).digest('hex');
-   const labels=await extractLabels(source,this.names(),abort.signal);const previous=this.catalog.get(id,language);
-   const strings=Object.fromEntries(labels.filter(s=>previous&&Object.hasOwn(previous.strings,s)).map(s=>[s,previous!.strings[s]]));
-   const missing=labels.filter(s=>!Object.hasOwn(strings,s));
-   if(!labels.length)throw new Error('没有识别到可翻译的英文静态词条；此插件可能使用动态文本');
+   this.rememberSettings();
+   const extracted=await extractLabels(source,this.names(),abort.signal);const templates=extracted.filter(text=>text.includes('⟦BA0⟧'));
+   const normalize=(text:string)=>templateSource(text,templates);
+   const labels=[...new Set([...extracted,...[...(this.observedLabels.get(id+'@'+manifest.version)||[])].map(normalize)])];const previous=this.catalog.get(id,language);
+   if(labels.length>3000)throw new Error('可识别词条超过 3000 条，暂不自动处理此大型插件');
+   const strings={...previous?.strings};
+   const contexts=Object.fromEntries(Object.entries(previous?.contexts||{}).map(([role,entries])=>[role,{...entries}]));
+   const roles=new Map<string,Set<string>>();
+   for(const entry of this.observedContexts.get(id+'@'+manifest.version)?.values()||[]){const text=normalize(entry.text),set=roles.get(text)||new Set<string>();set.add(entry.role);roles.set(text,set);}
+   const missing=labels.flatMap(text=>{
+    const observed=roles.get(text);
+    return observed?.size?[...observed].filter(role=>!Object.hasOwn(contexts[role]||{},text)).map(role=>({text,role})):Object.hasOwn(strings,text)?[]:[{text,role:''}];
+   });
+   if(missing.length>3000)throw new Error('新增上下文词条超过 3000 条，暂不自动处理');
+   if(!labels.length)throw new Error('没有识别到可翻译的英文词条；请先打开目标插件设置页，再返回补翻');
    engine=new Engine(config,this.transport(),this.clock);
    for(let i=0;i<missing.length;i+=12){
     if(abort.signal.aborted)throw new Error('已取消，原汉化词典未改变');report(`正在汉化 ${Math.min(i+12,missing.length)}/${missing.length} 条新增词条`);
-    const batch=missing.slice(i,i+12);const values=await Promise.all(batch.map(text=>engine!.translate({scope:'ui',text,context:`Plugin interface: ${id}; keep product names unchanged`},abort.signal)));
-    batch.forEach((text,j)=>{strings[text]=values[j];});
+    const batch=missing.slice(i,i+12);const values=await Promise.all(batch.map(({text,role})=>engine!.translate({scope:'ui',text,context:`Plugin interface: ${id}; UI role: ${role||'unspecified'}; keep product names unchanged; preserve numeric placeholder tokens exactly`},abort.signal)));
+    batch.forEach(({text,role},j)=>{if(role){contexts[role]||={};contexts[role][text]=values[j];}if(!Object.hasOwn(strings,text))strings[text]=values[j];});
    }
    if(abort.signal.aborted||this.stopped)throw new Error('已取消，原汉化词典未改变');
    const currentSource=await this.app.vault.adapter.read(path);if(createHash('sha256').update(currentSource).digest('hex')!==hash)throw new Error('插件代码在汉化期间发生变化，请重新汉化');
    if(abort.signal.aborted||this.stopped)throw new Error('已取消，原汉化词典未改变');
-   await this.catalog.save({pluginId:id,version:manifest.version,sourceHash:hash,language,enabled:true,updatedAt:new Date().toISOString(),strings});
-   this.stopSessions();this.refresh();report(`已保存 ${labels.length} 条；新增翻译 ${missing.length} 条`);return {total:labels.length,translated:missing.length};
+   await this.catalog.save({pluginId:id,version:manifest.version,sourceHash:hash,language,enabled:true,updatedAt:new Date().toISOString(),strings,contexts});
+   this.stopSessions();this.refresh();const total=Object.keys(strings).length;report(`已保存 ${total} 条；新增翻译 ${missing.length} 条`);return {total,translated:missing.length};
   }finally{engine?.dispose();this.busyId='';this.job=undefined;this.updateStatus();if(!this.stopped&&this.host.setting?.activeTab?.id===this.manifest.id&&this.tab.containerEl?.isConnected)this.tab.update();}
  }
  onunload(){this.stopped=true;this.job?.abort();this.serviceJobs.forEach(c=>c.abort());this.serviceJobs.clear();this.timer?.();this.docs.forEach(o=>o.disconnect());this.docs.clear();this.stopSessions();this.hooks.forEach(f=>f());}
