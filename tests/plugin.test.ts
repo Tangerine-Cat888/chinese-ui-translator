@@ -43,7 +43,7 @@ test('settings pop-out opening without workspace events is discovered, reopening
     }
   };
   const originalOpen = setting.open; const originalClose = setting.close;
-  const app: any = { setting, vault: { adapter: { getBasePath: () => 'popout-only-fixture' }, getName: () => 'fixture' }, workspace: {
+  const app: any = { setting, vault: { adapter: { getBasePath: () => 'popout-only-fixture' }, getName: () => 'fixture' }, workspace: {containerEl:document.body,
     on: () => ({}), onLayoutReady: (f: (...args: any[]) => any) => f(), iterateAllLeaves: () => {}, getLeavesOfType: () => []
   } };
   assistant = new Assistant(app, {} as any); await assistant.onload();
@@ -69,7 +69,7 @@ test('plugin lifecycle: translate, switch notes, restore, unload; files unchange
   const app = {
     setting: { activeTab: { id: 'other-plugin' } },
     vault: { getName: () => 'fixture', adapter: { getBasePath: () => vault, write: forbiddenWrite, remove: forbiddenWrite, rename: forbiddenWrite }, modify: forbiddenWrite, create: forbiddenWrite, delete: forbiddenWrite },
-    workspace: {
+    workspace: {containerEl:document.body,
       on: (name: string, callback: (...args: any[]) => any) => { listeners.set(name, [...(listeners.get(name) || []), callback]); return {}; },
       onLayoutReady: (f: (...args: any[]) => any) => f(), iterateAllLeaves: (f: (...args: any[]) => any) => f({ view }),
       getLeavesOfType: () => [{ view }], getActiveViewOfType: () => view

@@ -6,7 +6,7 @@
 
 - [ ] 读项目规则、README、CHANGELOG；核实当前版本、分支、远端、工作区改动及授权。新公开目标、推送、送审分别确认。
 - [ ] 覆盖全部 src（包括保留的 legacy-main/dom）、测试、构建与打包脚本、CSS；独立前端/iframe 如新增必须纳入。记录未打包模块，不把历史测试当当前功能。
-- [ ] `npm run lint` 零未处理警告、`npm run check`、`npm test`、`npm audit`、`npm ls --all`。检查例外注释及其兼容理由；不可直接复制其他项目的 override。
+- [ ] `npm run lint` 零未处理警告、`npm run check`、`npm test`、`npm audit`、`npm ls --all`。启用 TypeScript 完整类型感知规则；禁止关闭官方不允许禁用的规则，例外须同行注明理由。检查例外注释及其兼容理由；不可直接复制其他项目的 override。
 - [ ] 使用 `node scripts/version.mjs x.y.z` 更新 package/lock/manifest/versions。不得覆盖已公开标签或附件。
 - [ ] 两个全新目录按锁文件 `npm ci --ignore-scripts`，分别构建，比较三文件和 ZIP SHA256。记录 Node/npm/依赖树与 source hash。获推送授权后再补 CI 同提交复现。
 - [ ] 安装只含 main.js、manifest.json、styles.css；构建内附项目与 Acorn 许可证。不含 data.json、词典、用户文件、凭证、缓存、日志或开发工具。
@@ -23,6 +23,7 @@
 ## 获授权后
 
 - [ ] 公开源仓库只提交安全源文件白名单；不发布整个本地工作目录。
+- [ ] 使用 GitHub 构建来源证明，对标准附件签名并验证。
 - [ ] 正确提交与版本 tag；干净 CI 产物与本地逐文件比对。
 - [ ] 草稿 Release 上传三文件（ZIP 仅便利包），回读数量/大小/状态/哈希再公开。
 - [ ] 官方提交，确认版本入队，回读扫描及复现状态。Pending 不等于通过。

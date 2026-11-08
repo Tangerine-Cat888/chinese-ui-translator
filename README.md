@@ -1,8 +1,41 @@
 # Chinese UI Translator
 
+Translate recognizable English plugin interface labels into Simplified Chinese and reuse saved dictionaries offline. Plugin names, input values, notes and plugin source files are preserved.
+
+**Author:** Tangerine.Cat · **License:** MIT · **Version:** 0.3.2 · **Requires:** desktop Obsidian 1.15.0 or later.
+
+## Getting started
+
+1. Open Chinese UI Translator in Settings and expand the translation service section.
+2. Choose DeepSeek, OpenAI, OpenRouter, a compatible endpoint, DeepL or self-hosted DeepLX. Enter the required key, endpoint and model, then save and test. AI providers support model discovery; machine translation does not need a model.
+3. Select an English plugin and translate its labels. Saved dictionaries are applied locally when recognizable settings, menus and plugin controls appear.
+4. Restore English without deleting the dictionary, or translate new labels after a plugin update. No new labels means no translation request.
+
+## Privacy, cost and limitations
+
+The plugin is free and open source, with no membership or paid unlock. Third-party services may require accounts, API keys and payment. Only explicit translation, model listing and connection tests send requests. Translation sends extracted static candidate labels to the selected service, with plugin ID context for AI providers; candidates may include non-interface static text. It does not upload complete source files, notes or other plugins' settings.
+
+Service configuration and keys are stored **in plaintext** in this plugin's data.json and may be synced with its folder. Clear the key and save to remove it. Dictionaries use a vault-path hash and are stored **outside the vault**, under `%APPDATA%/ObsidianBilingualAssistant` on Windows, or the user's `.config/ObsidianBilingualAssistant` directory on other desktop systems. Node filesystem access is required for this existing local storage and one-time legacy migration. Uninstalling does not delete these files.
+
+Tested on Windows with Obsidian 1.15.0 using a local simulated service, including light/dark themes and narrow windows. Other desktop operating systems, host versions and real provider accounts were not tested in this release. Dynamic strings, native menus, images, iframes and some controls may remain untranslated. Options without an explicit value keep their original text. No note translation or mobile support. Canceling prevents local results from being applied but may not stop server execution or billing.
+
+## Installation and upgrade
+
+Download the files from [GitHub Releases](https://github.com/Tangerine-Cat888/chinese-ui-translator/releases). Place main.js, manifest.json and styles.css in your vault configuration directory's `plugins/chinese-ui-translator/` folder, or extract the ZIP there. Enable the plugin in Community plugins. Official directory review and GitHub publication are separate statuses.
+
+For upgrades from the old local `bilingual-assistant` ID, disable the old plugin first. The new plugin copies validated settings once and reuses the existing dictionary location; old files remain unchanged. Existing new-ID settings always take precedence, so clearing a key does not import it again. Do not enable both versions simultaneously.
+
+![Plugin translation management](docs/screenshots/overview-light.png)
+
+Screenshots use a separate test vault and simulated content, with no personal notes or credentials. See the Chinese guide below for full behavior details and build instructions. [MIT license](LICENSE) · [Third-party notices](THIRD-PARTY-NOTICES.md) · [Release verification](docs/release-verification.md).
+
+---
+
+# 中文使用说明
+
 按需将插件界面汉化为简体中文，保存词典后离线应用，保留插件名称与原始文件。
 
-作者：Tangerine.Cat · MIT · 版本 0.3.1· 桌面 Obsidian 1.15.0+
+作者：Tangerine.Cat · MIT · 版本 0.3.2· 桌面 Obsidian 1.15.0+
 
 ![插件汉化管理](docs/screenshots/overview-light.png)
 

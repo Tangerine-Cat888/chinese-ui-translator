@@ -6,8 +6,8 @@ import { createHash } from 'node:crypto';
 export interface SecretCipher { isEncryptionAvailable(): boolean; encryptString(value: string): Buffer; decryptString(value: Buffer): string }
 function systemCipher(): SecretCipher {
   // Lazy desktop import: loading saved plaintext settings must not require Electron in tests.
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const cipher = require('@electron/remote').safeStorage as SecretCipher;
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- Electron is available only inside the desktop host; load its cipher only for legacy encrypted settings.
+  const cipher = (require('@electron/remote') as {safeStorage: SecretCipher}).safeStorage;
   if (!cipher?.isEncryptionAvailable()) throw new Error('系统加密不可用，未保存密钥；可关闭“记住 API Key”使用会话模式');
   return cipher;
 }

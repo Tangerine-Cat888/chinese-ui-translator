@@ -2,7 +2,8 @@ import {mkdir,copyFile,readdir,readFile,writeFile} from 'node:fs/promises';
 import {resolve,join,dirname} from 'node:path';
 import {spawnSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
-const base=resolve('work/release-0.3.1/reproduce-'+Date.now());
+const {version,id}=JSON.parse(await readFile('manifest.json','utf8'));
+const base=resolve(`work/release-${version}/reproduce-`+Date.now());
 const files=['package.json','package-lock.json','manifest.json','versions.json','LICENSE','build.mjs','styles.css','tsconfig.json','vitest.config.ts','eslint.config.mjs'];
 for(const dir of ['src','tests','scripts'])for(const entry of await readdir(dir,{withFileTypes:true}))if(entry.isFile())files.push(dir+'/'+entry.name);
 const report={node:process.version,source:{},runs:[]};
@@ -18,7 +19,7 @@ for(const name of ['clean-a','clean-b']){
   await writeFile(join(cwd,log),(result.stdout||'')+(result.stderr||''));run.commands.push({args,exit:result.status,log});
   if(result.error||result.status!==0)throw new Error(`${name}: ${args.join(' ')} failed; see ${cwd}/${log}`);
  }
- run.artifacts={};for(const file of ['chinese-ui-translator/main.js','chinese-ui-translator/manifest.json','chinese-ui-translator/styles.css','chinese-ui-translator-0.3.1.zip'])run.artifacts[file]=createHash('sha256').update(await readFile(join(cwd,'dist',file))).digest('hex');
+ run.artifacts={};for(const file of [`${id}/main.js`,`${id}/manifest.json`,`${id}/styles.css`,`${id}-${version}.zip`])run.artifacts[file]=createHash('sha256').update(await readFile(join(cwd,'dist',file))).digest('hex');
  console.log(name+' passed');
 }
 report.identical=JSON.stringify(report.runs[0].artifacts)===JSON.stringify(report.runs[1].artifacts);

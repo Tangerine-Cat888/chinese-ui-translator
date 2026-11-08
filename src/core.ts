@@ -33,7 +33,7 @@ export class Engine {
     const builtin = item.scope === 'ui' && this.config.language === '简体中文' && Object.hasOwn(words, item.text.trim()) ? words[item.text.trim()] : undefined;
     if (manual || builtin) {
       try { return Promise.resolve(validateTranslation(item.text, (manual || builtin)!)); }
-      catch (e) { return Promise.reject(e); }
+      catch (e) { return Promise.reject(e instanceof Error ? e : new Error(String(e))); }
     }
     if (item.text.length > 12000) return Promise.reject(new Error('此段落超过 12000 字符，请拆分后翻译'));
     const key = JSON.stringify([item.scope, item.context, item.text, this.config.language]);

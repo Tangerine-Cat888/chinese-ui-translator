@@ -1,6 +1,7 @@
 import {readFile,writeFile,mkdir,rename} from 'node:fs/promises';
 import {join} from 'node:path';
 import {validateTranslation} from './core';
+import {isRecord} from './validation';
 export interface Pack { pluginId:string; version:string; sourceHash:string; language:string; enabled:boolean; updatedAt:string; strings:Record<string,string> }
 export class Catalog {
   private packs = new Map<string,Pack>();
@@ -15,10 +16,10 @@ export class Catalog {
     const data:unknown=JSON.parse(raw);
     if(!Array.isArray(data))throw new Error('汉化词典格式损坏，原文件保留');
     const next=new Map<string,Pack>();
-    for(const item of data){
-      if(!item||typeof item.pluginId!=='string'||typeof item.language!=='string'||!item.strings||typeof item.strings!=='object'||Array.isArray(item.strings))throw new Error('汉化词典格式损坏，原文件保留');
+    for(const item of data as unknown[]){
+      if(!isRecord(item)||typeof item.pluginId!=='string'||typeof item.language!=='string'||typeof item.version!=='string'||typeof item.sourceHash!=='string'||typeof item.updatedAt!=='string'||!isRecord(item.strings))throw new Error('汉化词典格式损坏，原文件保留');
       const strings=Object.fromEntries(Object.entries(item.strings).map(([source,value])=>[source,validateTranslation(source,value)]));
-      const pack:Pack={...item,enabled:item.enabled===true,strings};next.set(this.key(pack.pluginId,pack.language),pack);
+      const pack:Pack={pluginId:item.pluginId,language:item.language,version:item.version,sourceHash:item.sourceHash,updatedAt:item.updatedAt,enabled:item.enabled===true,strings};next.set(this.key(pack.pluginId,pack.language),pack);
     }
     this.packs=next;
   }

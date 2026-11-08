@@ -1,5 +1,5 @@
 import {tokenizer} from 'acorn';
-import {setImmediate} from 'node:timers/promises';
+import {yieldToUi} from './clock';
 import {isUiCandidate} from './scanner';
 export interface LanguageResult {kind:'english'|'chinese'|'unknown';english:number;chinese:number}
 /** Inspect UI literals and bundled Chinese localization; ignore identifiers and log noise. */
@@ -19,7 +19,7 @@ export async function detectInterfaceLanguage(source:string,names:Set<string>):P
    }
   }
   recent.push({label:token.type.label,value:token.value});if(recent.length>3)recent.shift();
-  if(++count%3000===0)await setImmediate();
+  if(++count%3000===0)await yieldToUi();
  }
  // Many Chinese literals indicate a built-in Chinese language pack even when the
  // bundle also contains English dependencies or fallback translations.

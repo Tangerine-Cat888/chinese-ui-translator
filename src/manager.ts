@@ -1,13 +1,12 @@
-import {Plugin,PluginSettingTab,Setting,Notice,type PluginManifest} from 'obsidian';
+import {Plugin,PluginSettingTab,Setting,Notice,type PluginManifest,type SettingDefinitionItem} from 'obsidian';
 import {createHash} from 'node:crypto';
-import {setTimeout as backgroundTimeout,clearTimeout as backgroundClear} from 'node:timers';
 import {Engine,type Config,type Transport} from './core';
 import {SettingsStore} from './storage';
 import {Catalog} from './catalog';
 import {extractLabels} from './scanner';
 import {LocalUi} from './local-ui';
 import {detectInterfaceLanguage,type LanguageResult} from './language';
-import type {Clock} from './clock';
+import {defaultClock,type Clock} from './clock';
 import {services,serviceTransport,engineConfig,listServiceModels,type ServiceId,type ServiceProfile} from './services';
 import {defaults as preferenceDefaults,loadPreferences,profileFor,type Preferences} from './preferences';
 
@@ -20,7 +19,7 @@ export default class TranslationManager extends Plugin {
  busyId='';progress='';private job?:AbortController;private closed=false;private stopped=false;
  private serviceJobs=new Set<AbortController>();
  private docs=new Map<Document,MutationObserver>();private sessions=new Map<HTMLElement,{id:string;session:LocalUi}>();private hooks:(()=>void)[]=[];private timer?:()=>void;
- private clock:Clock={set(callback,delay){const t=backgroundTimeout(callback,delay);return()=>backgroundClear(t);}};
+ private clock:Clock=defaultClock;
  private status?:HTMLElement;private tab!:ManagerSettings;private catalogReady=false;
  private languages=new Map<string,Promise<LanguageResult>>();
  private get host(){return this.app as unknown as Internals;}
@@ -32,7 +31,7 @@ export default class TranslationManager extends Plugin {
    if(this.stopped)break;
    if(this.catalog.get(manifest.id,this.settings.language)){visible.push(manifest);continue;}
    const key=manifest.id+'@'+manifest.version;
-   let job=this.languages.get(key);if(!job){job=(async()=>{try{const source=await this.app.vault.adapter.read(`${manifest.dir||`${this.app.vault.configDir}/plugins/${manifest.id}`}/main.js`);return await detectInterfaceLanguage(source,names);}catch{return {kind:'unknown',english:0,chinese:0} as LanguageResult;}})();this.languages.set(key,job);}
+   let job=this.languages.get(key);if(!job){job=(async()=>{try{const source=await this.app.vault.adapter.read(`${manifest.dir||`${this.app.vault.configDir}/plugins/${manifest.id}`}/main.js`);return await detectInterfaceLanguage(source,names);}catch{return {kind:'unknown',english:0,chinese:0};}})();this.languages.set(key,job);}
    const result=await job;if(result.kind==='english')visible.push(manifest);else if(result.kind==='chinese')chinese++;else unknown++;
   }
   return {visible,chinese,unknown};
@@ -47,34 +46,32 @@ export default class TranslationManager extends Plugin {
   try{this.preferences=await loadPreferences(this,()=>this.store.load(),async()=>{
    if(this.manifest.id!=='chinese-ui-translator')return null;
    const oldPath=`${this.app.vault.configDir}/plugins/bilingual-assistant/data.json`;
-   return await this.app.vault.adapter.exists(oldPath)?JSON.parse(await this.app.vault.adapter.read(oldPath)):null;
+   return await this.app.vault.adapter.exists(oldPath)?JSON.parse(await this.app.vault.adapter.read(oldPath)) as unknown:null;
   });this.preferencesReady=true;this.syncSettings();}catch(e){new Notice((e as Error).message);}
-  try{await this.catalog.load();this.catalogReady=true;}catch(e){new Notice('汉化词典读取失败，已保留文件，暂停词典写入');}
+  try{await this.catalog.load();this.catalogReady=true;}catch{new Notice('汉化词典读取失败，已保留文件，暂停词典写入');}
   // Migration deliberately disables the old automatic-network mode.
   this.settings.online=false;
   this.tab=new ManagerSettings(this);this.addSettingTab(this.tab);
   this.status=this.addStatusBarItem();this.updateStatus();this.status.onclick=()=>{this.host.setting?.open?.();this.host.setting?.openTabById?.(this.manifest.id);};
   this.addCommand({id:'manage-translations',name:'管理插件汉化',callback:()=>this.status?.click()});
-  this.addCommand({id:'toggle-ui',name:'暂停／恢复已保存汉化',callback:()=>{void this.applySettings({...this.settings,uiEnabled:!this.settings.uiEnabled}).catch(e=>new Notice(e.message));}});
+  this.addCommand({id:'toggle-ui',name:'暂停／恢复已保存汉化',callback:()=>{void this.applySettings({...this.settings,uiEnabled:!this.settings.uiEnabled}).catch((e:unknown)=>new Notice(e instanceof Error?e.message:String(e)));}});
   this.watchLifecycle();
   this.registerEvent(this.app.workspace.on('layout-change',()=>this.schedule()));
   this.registerEvent(this.app.workspace.on('window-open',(_leaf,win)=>{this.watch(win.document);this.schedule();}));
   this.registerEvent(this.app.workspace.on('window-close',(_leaf,win)=>this.release(win.document)));
   // The main document anchors lifecycle tracking; every popout is registered separately.
-  // eslint-disable-next-line obsidianmd/prefer-active-doc
-  this.app.workspace.onLayoutReady(()=>{if(!this.stopped){this.watch(document);this.refresh();}});
+  this.app.workspace.onLayoutReady(()=>{if(!this.stopped){this.watch(this.app.workspace.containerEl.ownerDocument);this.refresh();}});
  }
  private watchLifecycle(){
   const setting=this.host.setting;if(!setting)return;
   // Wrapper must preserve the host method's dynamic this while retaining its plugin owner.
-  // eslint-disable-next-line @typescript-eslint/no-this-alias
+  // eslint-disable-next-line @typescript-eslint/no-this-alias -- Preserve the host method dynamic receiver and plugin owner separately.
   const owner=this;
   for(const name of ['open','close','openTabById'] as const){const original=setting[name];if(typeof original!=='function')continue;
    const wrapped=function(this:unknown,...args:unknown[]){
     // Compare against the main document, never the active popout being closed.
-    // eslint-disable-next-line obsidianmd/prefer-active-doc
-    if(name==='close'){owner.closed=true;const doc=setting.activeTab?.containerEl?.ownerDocument||setting.modalEl?.ownerDocument;if(doc&&doc!==document)owner.release(doc);else owner.stopSessions();}
-    const result=Reflect.apply(original,this,args);if(name==='open')owner.closed=false;owner.schedule();return result;
+      if(name==='close'){owner.closed=true;const doc=setting.activeTab?.containerEl?.ownerDocument||setting.modalEl?.ownerDocument;if(doc&&doc!==owner.app.workspace.containerEl.ownerDocument)owner.release(doc);else owner.stopSessions();}
+    const result:unknown=Reflect.apply(original,this,args);if(name==='open')owner.closed=false;owner.schedule();return result;
    };
    (setting as Record<string,unknown>)[name]=wrapped;this.hooks.push(()=>{if(setting[name]===wrapped)(setting as Record<string,unknown>)[name]=original;});
   }
@@ -101,13 +98,13 @@ export default class TranslationManager extends Plugin {
   this.updateStatus();
  }
  private updateStatus(){if(this.status)this.status.textContent=this.busyId?'插件汉化：处理中':this.settings.uiEnabled?'插件汉化：已开启':'插件汉化：已暂停';}
- private syncSettings(){const p=profileFor(this.preferences);let endpoint='';try{endpoint=engineConfig(this.preferences.serviceId,p).endpoint;}catch{}this.settings={...this.settings,uiEnabled:this.preferences.uiEnabled,apiKey:p.apiKey,endpoint,model:services[this.preferences.serviceId].kind==='ai'?p.model:this.preferences.serviceId,language:'简体中文',online:false};}
+ private syncSettings(){const p=profileFor(this.preferences);let endpoint='';try{endpoint=engineConfig(this.preferences.serviceId,p).endpoint;}catch{/* An incomplete draft has no usable endpoint yet. */}this.settings={...this.settings,uiEnabled:this.preferences.uiEnabled,apiKey:p.apiKey,endpoint,model:services[this.preferences.serviceId].kind==='ai'?p.model:this.preferences.serviceId,language:'简体中文',online:false};}
  private async persist(preferences:Preferences){if(!this.preferencesReady)throw new Error('配置未成功读取，暂不覆盖原文件');await this.saveData(preferences);this.preferences=preferences;this.syncSettings();}
  async applySettings(settings:Settings){if(this.busyId||this.serviceBusy)throw new Error('请先等待当前任务完成');await this.persist({...this.preferences,uiEnabled:settings.uiEnabled});this.stopSessions();this.refresh();}
  async saveService(id:ServiceId,profile:ServiceProfile){if(this.busyId)throw new Error('请先等待汉化完成');await this.persist({...this.preferences,serviceId:id,profiles:{...this.preferences.profiles,[id]:{...profile}}});}
  async setEnabled(id:string,enabled:boolean){if(!this.catalogReady)throw new Error('词典尚未正常加载');if(this.busyId)throw new Error('请先等待当前汉化完成');const pack=this.catalog.get(id,this.settings.language);if(!pack)return;await this.catalog.save({...pack,enabled});this.stopSessions();this.refresh();}
  cancel(){this.job?.abort();}
- private transport(_config:Config):Transport{return serviceTransport(this.preferences.serviceId,profileFor(this.preferences));}
+ private transport():Transport{return serviceTransport(this.preferences.serviceId,profileFor(this.preferences));}
  async fetchModels(id:ServiceId,profile:ServiceProfile){if(this.stopped)throw new Error('插件已卸载');const controller=new AbortController();this.serviceJobs.add(controller);try{return await listServiceModels(id,profile,controller.signal);}finally{this.serviceJobs.delete(controller);}}
  async testService(id:ServiceId,profile:ServiceProfile){if(this.stopped)throw new Error('插件已卸载');const config=engineConfig(id,profile);const engine=new Engine(config,serviceTransport(id,profile),this.clock);const controller=new AbortController();this.serviceJobs.add(controller);try{return await engine.translate({scope:'ui',text:'The connection works.',context:'Connection test'},controller.signal);}finally{engine.dispose();this.serviceJobs.delete(controller);}}
  async translatePlugin(id:string,onProgress:(s:string)=>void=()=>{}){
@@ -124,7 +121,7 @@ export default class TranslationManager extends Plugin {
    const strings=Object.fromEntries(labels.filter(s=>previous&&Object.hasOwn(previous.strings,s)).map(s=>[s,previous!.strings[s]]));
    const missing=labels.filter(s=>!Object.hasOwn(strings,s));
    if(!labels.length)throw new Error('没有识别到可翻译的英文静态词条；此插件可能使用动态文本');
-   engine=new Engine(config,this.transport(config),this.clock);
+   engine=new Engine(config,this.transport(),this.clock);
    for(let i=0;i<missing.length;i+=12){
     if(abort.signal.aborted)throw new Error('已取消，原汉化词典未改变');report(`正在汉化 ${Math.min(i+12,missing.length)}/${missing.length} 条新增词条`);
     const batch=missing.slice(i,i+12);const values=await Promise.all(batch.map(text=>engine!.translate({scope:'ui',text,context:`Plugin interface: ${id}; keep product names unchanged`},abort.signal)));
@@ -135,13 +132,11 @@ export default class TranslationManager extends Plugin {
    if(abort.signal.aborted||this.stopped)throw new Error('已取消，原汉化词典未改变');
    await this.catalog.save({pluginId:id,version:manifest.version,sourceHash:hash,language,enabled:true,updatedAt:new Date().toISOString(),strings});
    this.stopSessions();this.refresh();report(`已保存 ${labels.length} 条；新增翻译 ${missing.length} 条`);return {total:labels.length,translated:missing.length};
-  }finally{engine?.dispose();this.busyId='';this.job=undefined;this.updateStatus();if(!this.stopped&&this.host.setting?.activeTab?.id===this.manifest.id&&this.tab.containerEl?.isConnected)this.tab.display();}
+  }finally{engine?.dispose();this.busyId='';this.job=undefined;this.updateStatus();if(!this.stopped&&this.host.setting?.activeTab?.id===this.manifest.id&&this.tab.containerEl?.isConnected)this.tab.update();}
  }
  onunload(){this.stopped=true;this.job?.abort();this.serviceJobs.forEach(c=>c.abort());this.serviceJobs.clear();this.timer?.();this.docs.forEach(o=>o.disconnect());this.docs.clear();this.stopSessions();this.hooks.forEach(f=>f());}
 }
 
-// Dynamic provider forms and plugin lists require custom rendering; search integration is a future enhancement.
-// eslint-disable-next-line obsidianmd/settings-tab/prefer-setting-definitions
 class ManagerSettings extends PluginSettingTab {
  private opened=new Map<string,boolean>();
  private query='';
@@ -159,9 +154,12 @@ class ManagerSettings extends PluginSettingTab {
   summary.addEventListener('keydown',event=>{if(event.key==='ArrowRight'||event.key==='ArrowLeft'){event.preventDefault();details.open=event.key==='ArrowRight';this.opened.set(id,details.open);}});
   return {details,caption,body:details.createDiv({cls:'ba-section-body'})};
  }
- display(){
-  const p=this.manager,el=this.containerEl;el.empty();el.dataset.baIgnore='';el.addClass('ba-settings');
-  const intro=el.createDiv({cls:'ba-settings-intro'});intro.createEl('h2',{text:'插件汉化管理'});intro.createEl('p',{text:'配置翻译服务，按需汉化插件界面。'});
+ getSettingDefinitions():SettingDefinitionItem[]{
+  return [{name:'插件汉化管理',aliases:['翻译服务','API Key','模型','DeepSeek','OpenAI','DeepL','词典'],render:setting=>{setting.settingEl.empty();setting.settingEl.addClass('ba-custom-settings');this.renderSettings(setting.settingEl);}}];
+ }
+ private renderSettings(el:HTMLElement){
+  const p=this.manager;el.empty();el.dataset.baIgnore='';el.addClass('ba-settings');
+  const intro=el.createDiv({cls:'ba-settings-intro'});new Setting(intro).setName('插件汉化管理').setHeading();intro.createEl('p',{text:'配置翻译服务，按需汉化插件界面。'});
   const status=el.createDiv({cls:'ba-settings-status'});
   new Setting(status).setName('显示已保存的中文').setDesc('随时切换中英文，已保存的词典会保留。').addToggle(t=>t.setValue(p.settings.uiEnabled).onChange(async value=>{try{await p.applySettings({...p.settings,uiEnabled:value});}catch(e){new Notice((e as Error).message);this.update();}}));
   new Setting(el).setName('翻译配置').setHeading();this.serviceSettings(el);
@@ -204,7 +202,7 @@ class ManagerSettings extends PluginSettingTab {
    if(id==='custom'||id==='deeplx')new Setting(form).setName('服务地址').setDesc(id==='deeplx'?'你的 DeepLX 实例地址':'兼容 OpenAI 的服务地址，可填写完整接口地址').addText(t=>t.setValue(profile.baseUrl).setDisabled(p.serviceBusy).onChange(v=>profile.baseUrl=v.trim()));
    if(services[id].kind==='ai'){
     const choices=models.get(id)||[];const row=new Setting(form).setName('模型');
-    if(choices.length&&!manual.has(id))row.addDropdown(d=>{const all=Array.from(new Set([profile.model,...choices].filter(Boolean)));if(!profile.model)d.addOption('','请选择模型');all.forEach(model=>d.addOption(model,model));d.addOption('__manual__','手动填写…').setValue(profile.model).setDisabled(p.serviceBusy).onChange(value=>{if(value==='__manual__'){manual.add(id);render();}else profile.model=value;});});
+    if(choices.length&&!manual.has(id))row.addDropdown(d=>{const all=Array.from(new Set([profile.model,...choices].filter(Boolean)));if(!profile.model)d.addOption('','请选择模型');all.forEach(model=>{d.addOption(model,model);});d.addOption('__manual__','手动填写…').setValue(profile.model).setDisabled(p.serviceBusy).onChange(value=>{if(value==='__manual__'){manual.add(id);render();}else profile.model=value;});});
     else row.addText(t=>t.setValue(profile.model).setPlaceholder('模型名称').setDisabled(p.serviceBusy).onChange(v=>profile.model=v.trim()));
     row.addButton(b=>b.setButtonText('获取模型').setDisabled(p.serviceBusy||!!p.busyId).onClick(async()=>{
      p.serviceBusy=true;feedback.textContent='正在获取模型…';render();

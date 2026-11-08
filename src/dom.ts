@@ -113,13 +113,13 @@ export class DomSession {
       void this.engine.translate({ scope: 'reading', text: data.text, context: this.context() }, state.controller.signal).then(value => {
         if (!valid()) return;
         const translated = value.replace(/⟦BA(\d+)⟧/g, (_, n) => data.tokens[Number(n)] ?? '');
-        const wrapper = el.ownerDocument.createElement('span'); wrapper.dataset.baOutput = 'translation'; wrapper.className = 'ba-translation'; wrapper.lang = this.engine.config.language === '简体中文' ? 'zh-CN' : '';
+        const wrapper = el.createSpan(); wrapper.dataset.baOutput = 'translation'; wrapper.className = 'ba-translation'; wrapper.lang = this.engine.config.language === '简体中文' ? 'zh-CN' : '';
         wrapper.textContent = translated; state.wrapper = wrapper;
         const childList = el.querySelector(':scope > ul,:scope > ol'); el.insertBefore(wrapper, childList);
       }).catch(e => {
         if (!valid()) return;
-        const wrapper = el.ownerDocument.createElement('span'); wrapper.dataset.baOutput = 'error'; wrapper.className = 'ba-translation ba-error';
-        const retry = el.ownerDocument.createElement('button'); retry.textContent = '翻译失败，点击重试'; retry.title = (e as Error).message;
+        const wrapper = el.createSpan(); wrapper.dataset.baOutput = 'error'; wrapper.className = 'ba-translation ba-error';
+        const retry = wrapper.createEl('button'); retry.textContent = '翻译失败，点击重试'; retry.title = (e as Error).message;
         retry.onclick = event => { event.preventDefault(); event.stopPropagation(); this.cleanup(el, state); this.scan(); };
         wrapper.append(retry); state.wrapper = wrapper; el.append(wrapper); this.error((e as Error).message);
       });

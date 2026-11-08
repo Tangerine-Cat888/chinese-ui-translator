@@ -4,6 +4,14 @@ import {requestUrl} from 'obsidian';
 import {defaultProfile,serviceTransport,serviceUrl,listServiceModels} from '../src/services';
 import {loadPreferences,profileFor} from '../src/preferences';
 beforeEach(()=>vi.mocked(requestUrl).mockReset());
+test.each([null, [], {translations:[null, {text:'ok'}]}, {translations:[{text:4},{text:'ok'}]}])('rejects malformed DeepL responses without leaking raw data: %j',async json=>{
+ vi.mocked(requestUrl).mockResolvedValue({status:200,json} as any);
+ await expect(serviceTransport('deepl',{...defaultProfile('deepl'),apiKey:'FAKE'})(request,new AbortController().signal)).rejects.toThrow('翻译服务');
+});
+test('invalid nested profile values cannot become credentials or endpoints',async()=>{
+ const p=await loadPreferences({loadData:async()=>({schemaVersion:1,serviceId:[],profiles:{deepseek:{apiKey:{secret:'do-not-use'},baseUrl:9,model:null},openai:[]}}),saveData:vi.fn()},vi.fn());
+ expect(profileFor(p)).toEqual(defaultProfile('deepseek'));expect(p.profiles.openai).toBeUndefined();
+});
 const request={messages:[{role:'user',content:JSON.stringify([{id:'0',text:'First label'},{id:'1',text:'Second label'}])}]};
 test('plugin ID migration preserves profiles and writes once; clearing never reimports old data',async()=>{
  let data:any=null;

@@ -23,7 +23,7 @@ test('one-click persists translations; reopen, reload and incremental scan make 
  const root=document.createElement('div');root.innerHTML='<h2>Fixture Plugin</h2><div class="setting-item-name">Enable feature</div>';document.body.append(root);
  const source='new Setting(el).setName("Enable feature"); const name="Fixture Plugin";';
  const read=vi.fn().mockResolvedValue(source),write=vi.fn(()=>{throw new Error('Must not write plugin or notes');});
- const app:any={vault:{configDir:'.obsidian',adapter:{getBasePath:()=>'/fixture-manager',read,write}},plugins:{manifests:{fixture:{id:'fixture',name:'Fixture Plugin',version:'1',dir:'.obsidian/plugins/fixture'}}},setting:{activeTab:{id:'fixture',containerEl:root}},workspace:{on:()=>({}),onLayoutReady:(f:(...args: any[]) => any)=>f(),iterateAllLeaves:()=>{}}};
+ const app:any={vault:{configDir:'.obsidian',adapter:{getBasePath:()=>'/fixture-manager',read,write}},plugins:{manifests:{fixture:{id:'fixture',name:'Fixture Plugin',version:'1',dir:'.obsidian/plugins/fixture'}}},setting:{activeTab:{id:'fixture',containerEl:root}},workspace:{containerEl:document.body,on:()=>({}),onLayoutReady:(f:(...args: any[]) => any)=>f(),iterateAllLeaves:()=>{}}};
  vi.mocked(requestUrl).mockImplementation((async(args:any)=>{const body=JSON.parse(args.body);const items=JSON.parse(body.messages[1].content);return{status:200,json:{choices:[{message:{content:JSON.stringify(Object.fromEntries(items.map((i:any)=>[i.id,'启用功能'])))}}]}};})as any);
  let p=new Manager(app,{id:'bilingual-assistant'}as any);
  try{

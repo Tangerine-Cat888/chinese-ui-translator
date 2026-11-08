@@ -1,9 +1,9 @@
 import { Plugin, PluginSettingTab, Setting, Notice, MarkdownView, MarkdownRenderChild, requestUrl } from 'obsidian';
+import type {SettingDefinitionItem} from 'obsidian';
 import { Engine, abortError, type Config, type Transport } from './core';
 import { DomSession } from './dom';
 import { SettingsStore } from './storage';
-import type { Clock } from './clock';
-import { setTimeout as backgroundTimeout, clearTimeout as backgroundClear } from 'node:timers';
+import { defaultClock, type Clock } from './clock';
 
 interface Settings extends Config { uiEnabled: boolean; excludedPlugins: string; rememberApiKey: boolean }
 const defaults: Settings = { endpoint: '', model: '', language: '简体中文', apiKey: '', online: false, glossary: {}, uiEnabled: true, excludedPlugins: '', rememberApiKey: false };
@@ -20,7 +20,7 @@ export default class BilingualAssistant extends Plugin {
   private refreshTimer?: () => void;
   // Desktop Node timers survive pop-out closing and aren't throttled when the
   // main renderer is hidden behind the settings window. Still explicitly canceled.
-  private clock: Clock = { set(callback, delay) { const timer = backgroundTimeout(callback, delay); return () => backgroundClear(timer); } };
+  private clock: Clock = defaultClock;
   private stopped = false;
   private status!: HTMLElement;
   private lastError = '';
@@ -56,8 +56,7 @@ export default class BilingualAssistant extends Plugin {
     this.registerEvent(this.app.workspace.on('window-open', (_leaf, win) => { this.watchDocument(win.document); this.scheduleRefresh(); }));
     this.registerEvent(this.app.workspace.on('window-close', (_leaf, win) => { this.documents.get(win.document)?.disconnect(); this.documents.delete(win.document); this.scheduleRefresh(); }));
     // Anchor the main window; popout documents are tracked separately.
-    // eslint-disable-next-line obsidianmd/prefer-active-doc
-    this.app.workspace.onLayoutReady(() => { if (!this.stopped) { this.watchDocument(document); this.refresh(); } });
+    this.app.workspace.onLayoutReady(() => { if (!this.stopped) { this.watchDocument(this.app.workspace.containerEl.ownerDocument); this.refresh(); } });
   }
   private transport(config: Config): Transport {
     return async (body, signal) => {
@@ -91,7 +90,7 @@ export default class BilingualAssistant extends Plugin {
     for (const name of ['open', 'close']) {
       const original = setting[name]; if (typeof original !== 'function') continue;
       // Host wrapper retains its own dynamic this.
-      // eslint-disable-next-line @typescript-eslint/no-this-alias
+      // eslint-disable-next-line @typescript-eslint/no-this-alias -- Preserve the host method dynamic receiver and plugin owner separately.
       const plugin = this;
       const wrapped = function(this: unknown, ...args: unknown[]) {
         if (name === 'close') {
@@ -103,11 +102,10 @@ export default class BilingualAssistant extends Plugin {
           const modal = setting.modalEl as HTMLElement | undefined;
           for (const doc of new Set([tab?.ownerDocument, modal?.ownerDocument])) {
             // Keep the main window observer when a popout closes.
-            // eslint-disable-next-line obsidianmd/prefer-active-doc
-            if (doc && doc !== document) { plugin.documents.get(doc)?.disconnect(); plugin.documents.delete(doc); }
+                    if (doc && doc !== plugin.app.workspace.containerEl.ownerDocument) { plugin.documents.get(doc)?.disconnect(); plugin.documents.delete(doc); }
           }
         }
-        const result = Reflect.apply(original, this, args);
+        const result: unknown = Reflect.apply(original, this, args);
         if (name === 'open') plugin.settingsClosed = false;
         plugin.refreshTimer?.(); plugin.refreshTimer = undefined; plugin.scheduleRefresh(); return result;
       };
@@ -193,11 +191,13 @@ export default class BilingualAssistant extends Plugin {
 }
 
 // Archived entry retained for regression tests, excluded from release bundle.
-// eslint-disable-next-line obsidianmd/settings-tab/prefer-setting-definitions
 class AssistantSettings extends PluginSettingTab {
   constructor(private assistant: BilingualAssistant) { super(assistant.app, assistant); }
-  display() {
-    const el = this.containerEl; el.empty(); el.dataset.baIgnore = ''; el.addClass('ba-settings');
+  getSettingDefinitions(): SettingDefinitionItem[] {
+    return [{name:'双语助手',aliases:['翻译','API Key','模型'],render:setting=>{setting.settingEl.empty();this.renderSettings(setting.settingEl);}}];
+  }
+  private renderSettings(el: HTMLElement) {
+    el.empty(); el.dataset.baIgnore = ''; el.addClass('ba-settings');
     const draft = { ...this.assistant.settings, glossary: { ...this.assistant.settings.glossary } };
     new Setting(el).setName('双语助手').setHeading();
     el.createEl('p', { text: '开启在线翻译后，设置文字和你主动翻译的笔记段落将发送到所选服务。原始笔记不变；译文缓存只保留在本次会话。记住的密钥经系统加密后保存在知识库外。' });
