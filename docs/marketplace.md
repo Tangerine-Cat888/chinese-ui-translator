@@ -1,4 +1,4 @@
-# 市场资料 — 0.3.5
+# 市场资料 — 0.3.6
 
 名称：Chinese UI Translator
 
@@ -58,7 +58,7 @@ Translate plugin interfaces into Simplified Chinese and reuse saved dictionaries
 
 ## 0.3.5 提交状态
 
-本轮发布验收完成，等待推送后的云端产物核对和官方检查；最终结果见 release-verification.md。
+0.3.5 已发布并完成官方检查。为修复官方 DOM helper 警告与测量/焦点变化造成的英文闪回，追加 0.3.6；不覆盖原标签。0.3.6 官方检查 Completed，源码警告已消除，构建逐字节复现通过；保留库外文件访问提示与额外 ZIP 建议。最终证据见 release-verification.md。
 
 ## 0.3.4 历史提交状态
 
