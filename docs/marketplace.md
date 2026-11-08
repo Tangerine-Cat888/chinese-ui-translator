@@ -1,4 +1,4 @@
-# 市场资料 — 0.3.2
+# 市场资料 — 0.3.3
 
 名称：Chinese UI Translator
 

@@ -2,7 +2,7 @@
 
 Translate recognizable English plugin interface labels into Simplified Chinese and reuse saved dictionaries offline. Plugin names, input values, notes and plugin source files are preserved.
 
-**Author:** Tangerine.Cat · **License:** MIT · **Version:** 0.3.2 · **Requires:** desktop Obsidian 1.15.0 or later.
+**Author:** Tangerine.Cat · **License:** MIT · **Version:** 0.3.3 · **Requires:** desktop Obsidian 1.15.0 or later.
 
 ## Getting started
 
@@ -35,7 +35,7 @@ Screenshots use a separate test vault and simulated content, with no personal no
 
 按需将插件界面汉化为简体中文，保存词典后离线应用，保留插件名称与原始文件。
 
-作者：Tangerine.Cat · MIT · 版本 0.3.2· 桌面 Obsidian 1.15.0+
+作者：Tangerine.Cat · MIT · 版本 0.3.3· 桌面 Obsidian 1.15.0+
 
 ![插件汉化管理](docs/screenshots/overview-light.png)
 
