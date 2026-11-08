@@ -1,0 +1,9 @@
+node_modules/
+dist/
+coverage/
+*.zip
+tests/artifacts/
+work/
+qa/
+**/data.json
+**/translations.json

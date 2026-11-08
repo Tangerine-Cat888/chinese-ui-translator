@@ -1,0 +1,10 @@
+import { build } from 'esbuild';
+import { mkdir, copyFile,readFile,writeFile } from 'node:fs/promises';
+const manifest=JSON.parse(await readFile('manifest.json','utf8'));
+const output=`dist/${manifest.id}`;
+await mkdir(output, { recursive: true });
+const license=await readFile('LICENSE','utf8');
+const acornLicense=await readFile('node_modules/acorn/LICENSE','utf8');
+const result=await build({ entryPoints: ['src/main.ts'], bundle: true, format: 'cjs', platform: 'node', target: 'es2022', metafile:true, banner:{js:`/*! Chinese UI Translator\n${license}\nBundled Acorn (https://github.com/acornjs/acorn):\n${acornLicense}*/`},external: ['obsidian', 'electron', '@electron/remote'], outfile: `${output}/main.js` });
+await writeFile('dist/build-meta.json',JSON.stringify(result.metafile,null,2)+'\n');
+for (const name of ['manifest.json', 'styles.css']) await copyFile(name, `${output}/${name}`);
