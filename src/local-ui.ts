@@ -5,6 +5,14 @@ import {uiRole,type UiEntry} from './ui-context';
 const excluded='script,style,pre,code,textarea,input,[contenteditable="true"],.cm-editor,.markdown-source-view,.markdown-preview-view,.markdown-rendered,.suggestion-content,.tree-item-inner,.view-header-title,.vertical-tab-nav-item,[data-ba-ignore],svg,iframe';
 const labels='.setting-item-name,.setting-item-description,.setting-item-info,.menu-item-title,.modal-title,.modal-description,button,label,option,h1,h2,h3,h4,summary,[role="heading"],[role="button"],[role="tab"],[role="checkbox"],[role="switch"],.ba-plugin-view';
 const inline='span,strong,em,b,i,small';
+const semanticClasses=new Set([...(`${excluded},${labels}`).matchAll(/\.([\w-]+)/g)].map(match=>match[1]));
+function contextChanged(record:MutationRecord){
+ if(record.type!=='attributes')return false;
+ if(record.attributeName==='role')return true;
+ if(record.attributeName!=='class')return false;
+ const previous=new Set((record.oldValue||'').split(/\s+/)),current=(record.target as Element).classList;
+ return [...semanticClasses].some(name=>previous.has(name)!==current.contains(name));
+}
 function textNodes(root:HTMLElement){const result:Text[]=[];const walker=root.ownerDocument.createTreeWalker(root,4);let node:Node|null;while((node=walker.nextNode()))result.push(node as Text);return result;}
 function permitted(el:Element){return !el.closest(excluded)&&!el.closest('option:not([value])')&&!!el.closest(labels);}
 /** Collect only recognizable UI labels, never input values or arbitrary settings content. */
@@ -25,8 +33,8 @@ export class LocalUi {
  collect(names:Set<string>,onEntry?:(entry:UiEntry)=>void){return collectUiLabels(this.root,names,node=>{const p=this.text.get(node);return p&&node.nodeValue===p.applied?p.source:node.nodeValue||'';},(el,key)=>{const p=this.attributes.get(el)?.get(key);return p&&el.getAttribute(key)===p.applied?p.source:el.getAttribute(key);},onEntry);}
  constructor(readonly root:HTMLElement,private lookup:(text:string,role:string)=>string|undefined,private clock:Clock=defaultClock){
   const win=root.ownerDocument.defaultView!;
-  this.observer=new win.MutationObserver(records=>{if(records.some(record=>record.type==='attributes'&&(record.attributeName==='role'||record.attributeName==='class')))this.restore();if(!this.timer)this.timer=this.clock.set(()=>{this.timer=undefined;this.scan();},80);});
-  this.observer.observe(root,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['title','aria-label','placeholder','role','class']});root.addEventListener('change',this.changed);this.scan();
+  this.observer=new win.MutationObserver(records=>{if(records.some(contextChanged))this.restore();if(!this.timer)this.timer=this.clock.set(()=>{this.timer=undefined;this.scan();},80);});
+  this.observer.observe(root,{subtree:true,childList:true,characterData:true,attributes:true,attributeOldValue:true,attributeFilter:['title','aria-label','placeholder','role','class']});root.addEventListener('change',this.changed);this.scan();
  }
  scan(){
   for(const [el,nodes] of this.groups){

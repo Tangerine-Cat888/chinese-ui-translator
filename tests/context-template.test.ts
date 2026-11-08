@@ -72,3 +72,14 @@ test('translated dropdown labels refit without changing the selected value or fi
   session.stop();expect(select.style.getPropertyValue('--dropdown-fitted-width')).toBe('50px');expect(select.selectedOptions[0].textContent).toBe('RAW');
  }finally{session.stop();mock.mockRestore();}
 });
+
+
+test('measurement and focus classes keep translated labels stable while semantic classes still restore them',async()=>{
+ const root=document.createElement('div');root.innerHTML='<button>Open</button><select class="dropdown"><option value="x">PDF</option></select>';
+ const label=root.querySelector('button')!,select=root.querySelector('select')!;
+ const session=new LocalUi(root,text=>text==='Open'?'打开':text==='PDF'?'PDF 文档':undefined,{set:()=>()=>{}});
+ try{select.classList.add('is-measuring');label.classList.add('is-focused');await Promise.resolve();
+  expect(label.textContent).toBe('打开');expect(select.options[0].textContent).toBe('PDF 文档');
+  label.classList.add('markdown-rendered');await Promise.resolve();session.scan();expect(label.textContent).toBe('Open');
+ }finally{session.stop();}
+});
