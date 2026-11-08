@@ -59,7 +59,7 @@
 .ba-settings.ba-settings .ba-settings-status .setting-item-control { flex: 0 0 auto; width: auto; }
 
 /* A custom setting definition owns the whole page, not a theme setting card. */
-.setting-items:has(> .ba-custom-settings) { background: transparent; border: 0; border-radius: 0; box-shadow: none; padding: 0; }
+.setting-items.ba-settings-container { background: transparent; border: 0; border-radius: 0; box-shadow: none; padding: 0; }
 .setting-items > .setting-item.ba-custom-settings { display: block; width: 100%; min-width: 0; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
 .ba-settings.ba-settings .ba-settings-intro .setting-item { padding: 0; border: 0; }
 

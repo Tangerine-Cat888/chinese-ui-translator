@@ -155,7 +155,7 @@ class ManagerSettings extends PluginSettingTab {
   return {details,caption,body:details.createDiv({cls:'ba-section-body'})};
  }
  getSettingDefinitions():SettingDefinitionItem[]{
-  return [{name:'插件汉化管理',aliases:['翻译服务','API Key','模型','DeepSeek','OpenAI','DeepL','词典'],render:setting=>{setting.settingEl.empty();setting.settingEl.addClass('ba-custom-settings');this.renderSettings(setting.settingEl);}}];
+  return [{name:'插件汉化管理',aliases:['翻译服务','API Key','模型','DeepSeek','OpenAI','DeepL','词典'],render:setting=>{setting.settingEl.empty();setting.settingEl.addClass('ba-custom-settings');setting.settingEl.parentElement?.classList.add('ba-settings-container');this.renderSettings(setting.settingEl);}}];
  }
  private renderSettings(el:HTMLElement){
   const p=this.manager;el.empty();el.dataset.baIgnore='';el.addClass('ba-settings');
