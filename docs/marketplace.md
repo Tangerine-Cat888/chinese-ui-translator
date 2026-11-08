@@ -54,4 +54,10 @@ Translate plugin interfaces into Simplified Chinese and reuse saved dictionaries
 
 ## 提交状态
 
-仅本地准备；尚无公开仓库、GitHub Release、后台草稿、送审结果或客户端收录证据。取得本聊天明确公开授权后再建仓、推送和送审。不要在提交表单填入猜测的仓库 URL。
+源码与 0.3.1 已公开发布：
+
+- 仓库：https://github.com/Tangerine-Cat888/chinese-ui-translator
+- 发行：https://github.com/Tangerine-Cat888/chinese-ui-translator/releases/tag/0.3.1
+- CI：https://github.com/Tangerine-Cat888/chinese-ui-translator/actions/runs/42474562784
+
+官方社区提交尚未完成，不能视作已审核或可在客户端搜索。后台资料和截图在创建条目后提交，并回读实际状态。
