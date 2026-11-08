@@ -1,4 +1,4 @@
-# 市场资料草稿 — 0.3.1
+# 市场资料 — 0.3.2
 
 名称：Chinese UI Translator
 
@@ -8,7 +8,7 @@
 
 许可证：MIT
 
-分类建议：界面、翻译、工具（以后台实际可选项为准）
+官方分类：Interface（主分类）、AI、Languages；付款选项 Free。
 
 英文简介（与 manifest 一致）：
 
@@ -54,10 +54,10 @@ Translate plugin interfaces into Simplified Chinese and reuse saved dictionaries
 
 ## 提交状态
 
-源码与 0.3.1 已公开发布：
+源码与 0.3.2 已公开发布：
 
 - 仓库：https://github.com/Tangerine-Cat888/chinese-ui-translator
-- 发行：https://github.com/Tangerine-Cat888/chinese-ui-translator/releases/tag/0.3.1
-- CI：https://github.com/Tangerine-Cat888/chinese-ui-translator/actions/runs/42474562784
+- 发行：https://github.com/Tangerine-Cat888/chinese-ui-translator/releases/tag/0.3.2
+- CI：https://github.com/Tangerine-Cat888/chinese-ui-translator/actions/runs/42475720522
 
-官方社区提交尚未完成，不能视作已审核或可在客户端搜索。后台资料和截图在创建条目后提交，并回读实际状态。
+官方条目已提交并发布：https://community.obsidian.md/plugins/chinese-ui-translator 。公开页已回读简介、说明、3 张截图。0.3.2 / 2e1b15f 官方检查现为 Completed，构建复现逐字节通过，无 Error。保留已披露的库外文件访问 Warning 和额外 ZIP Recommendation。客户端内搜索未单独验收。已保存的 986 字英文长描述见 marketplace-description-en.txt。

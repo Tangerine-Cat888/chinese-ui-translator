@@ -1,5 +1,7 @@
 # 0.3.2 发布验证
 
+官方 [公开条目](https://community.obsidian.md/plugins/chinese-ui-translator) 已发布；0.3.2 检查为 **Completed**，官方构建复现 main.js 逐字节一致，无 Error。唯一 Warning 为已披露的库外文件访问；额外 ZIP 属于 Recommendation。客户端内搜索未单独验收。
+
 2026-11-08，源码标签 `0.3.2` 对应 `2e1b15f2d3210d8c4644fa9c3087bbecfdf393ff`。
 
 - [CI](https://github.com/Tangerine-Cat888/chinese-ui-translator/actions/runs/42475720522)通过干净安装、完整类型感知 lint、类型检查、52 项测试、audit、依赖树、构建、打包与哈希核验。
@@ -33,3 +35,5 @@ macOS/Linux 未实机测试；不支持手机；未使用真实付费供应商�
 真实宿主验收：Windows、Obsidian 1.15.0，干净安装、模拟服务配置/翻译、恢复、离线重载、取消/失败、明暗主题和窄窗口通过；旧 ID 配置迁移与双开保护通过。macOS/Linux 和其他宿主版本未实机测试，手机不支持；未用真实供应商账号逐一验证。
 
 GitHub 发布与官方社区审核是两个独立阶段。目前不宣称官方审核通过或已被客户端目录收录。
+
+最终公开页 Current version 为 0.3.2，Add to Obsidian 已启用并指向 obsidian://show-plugin?id=chinese-ui-translator；未点击以免改动用户日常库。
