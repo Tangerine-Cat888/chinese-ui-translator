@@ -4,7 +4,7 @@
 
 90项自动测试、类型及lint通过；新建独立验收库重跑基础19项、进度/ARIA/Copilot、Keychain、旧ID迁移和损坏词典保护，明暗主题、键盘及卸载检查通过。Keychain重载检查首次固定400ms等待不足，改为等待实际翻译状态后通过。证据位于本地work/release-0.3.14，早期未完成的运行不计入通过。
 
-平台与服务边界同下：Windows Obsidian1.15.0与本地模拟服务；macOS/Linux宿主、真实供应商及客户端搜索未测。正式发行与官方结果完成后补记。
+平台与服务边界同下：Windows Obsidian1.15.0与本地模拟服务；macOS/Linux宿主、真实供应商及客户端搜索未测。[0.3.14](https://github.com/Tangerine-Cat888/chinese-ui-translator/releases/tag/0.3.14) 已公开；[CI](https://github.com/Tangerine-Cat888/chinese-ui-translator/actions/runs/42978836256) 与两次 Windows 干净构建一致，四附件草稿和公开下载均核验，来源证明通过。个人安装已更新并启用，配置、启用列表与库外存储哈希不变，5份词典和Keychain引用正常，重载无捕获错误。实际Copilot当前停用，本轮仅对合成Copilot界面验收。官方0.3.14检查 **Completed**：构建逐字节复现通过，来源证明通过，无Error或源码/CSS警告。仅保留已披露的库外文件访问Warning与额外ZIP Recommendation。公开页简介、详情、4张截图及Add to Obsidian链接已回读。
 
 ---
 
@@ -14,7 +14,7 @@
 
 基础19项、进度/ARIA/Copilot新增功能、原生Keychain创建选择/迁移/轮换/解除关联/缺失保护、旧ID迁移与损坏词典保护均重新执行。验证明暗主题、窄屏、键盘、卸载清理、控件事件和值、笔记及目标插件源码不变。截图为模拟内容。
 
-Keychain前的81项结果仅为历史中间证据，不替代本次。最终证据位于本地 work/release-0.3.13/final。仅使用模拟端点；真实供应商账号、macOS/Linux宿主和客户端目录搜索未测。正式发行与官方扫描结果待完成后追加。
+Keychain前的81项结果仅为历史中间证据，不替代本次。最终证据位于本地 work/release-0.3.13/final。仅使用模拟端点；真实供应商账号、macOS/Linux宿主和客户端目录搜索未测。0.3.13 已正式发布，官方检查Completed且逐字节复现通过，随后发现的两条源码Warning在0.3.14修复。
 
 ---
 

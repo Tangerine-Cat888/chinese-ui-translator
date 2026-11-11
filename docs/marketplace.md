@@ -62,6 +62,10 @@ Translate plugin interfaces into Simplified Chinese and reuse saved dictionaries
 
 截图来自独立验收库，使用模拟翻译服务和测试插件，不展示用户笔记、账户或密钥。模拟内容不代表真实模型的翻译质量。
 
+## 0.3.14 提交状态
+
+0.3.14已公开发行，官方扫描Completed，构建逐字节复现通过，无Error或源码/CSS警告。保留库外访问Warning与额外ZIP Recommendation。公开页已有4张截图，新版Keychain截图与说明已保存；旧截图展示历史界面。实际安装为0.3.14、正常启用，原配置与5份词典哈希未变。独立证据见release-verification.md与本地work/release-0.3.14/验收记录.md。
+
 ## 0.3.5 提交状态
 
 0.3.5 已发布并完成官方检查。为修复官方 DOM helper 警告与测量/焦点变化造成的英文闪回，追加 0.3.6；不覆盖原标签。0.3.6 官方检查 Completed，源码警告已消除，构建逐字节复现通过；保留库外文件访问提示与额外 ZIP 建议。最终证据见 release-verification.md。

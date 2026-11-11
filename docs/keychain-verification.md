@@ -1,6 +1,6 @@
 # Obsidian keychain integration — Issue #1
 
-Implemented as an unreleased source change. No release tag or published download is created by this commit.
+Originally implemented as an unreleased source commit. Now included in releases 0.3.13 and 0.3.14; final integrated acceptance is recorded in [release verification](release-verification.md). The 74-test record below describes the earlier isolated Keychain commit, not the final 90-test release.
 
 ## Behavior
 

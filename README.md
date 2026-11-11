@@ -41,14 +41,14 @@ Screenshots use a separate test vault and simulated content, with no personal no
 
 按需将插件界面汉化为简体中文，保存词典后离线应用，保留插件名称与原始文件。
 
-作者：Tangerine.Cat · MIT · 版本 0.3.13 · 桌面 Obsidian 1.15.0+。
+作者：Tangerine.Cat · MIT · 版本 0.3.14 · 桌面 Obsidian 1.15.0+。
 
 ![插件汉化管理](docs/screenshots/overview-light.png)
 
 ## 使用
 
 1. 在设置中打开 **Chinese UI Translator**，展开“翻译服务”。
-2. 选择服务，填写相应凭证、地址和模型，点击“保存并测试”。AI 服务可获取模型列表；机器翻译无需模型。
+2. 选择服务，通过原生钥匙串控件创建或选择密钥，填写地址和模型，点击“保存并测试”。AI 服务可获取模型列表；机器翻译无需模型。
 3. 在插件列表找到英文插件，点击“汉化”。完成后显示已保存的词条数量。
 4. 日常打开可识别的设置、菜单和插件控件时，直接应用本地词典，不自动请求翻译。
 5. “恢复英文”保留词典；“启用中文”重新应用。插件更新后可“补翻新增”，无新增词条时不会请求模型。
