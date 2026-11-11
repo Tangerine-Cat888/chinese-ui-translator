@@ -8,7 +8,7 @@ export function referencedLabels(root:HTMLElement,excluded:string){
   if(control.closest(excluded.replace('textarea,input,','')))continue;
   for(const [attribute,role] of [['aria-labelledby','label'],['aria-describedby','description']]){
    for(const id of (control.getAttribute(attribute)||'').trim().split(/\s+/)){
-    const matches=targets.get(id);if(!id||id.length>256||/[\u0000-\u001f\u007f]/.test(id)||matches?.length!==1)continue;
+    const matches=targets.get(id);if(!id||id.length>256||[...id].some(c=>c.charCodeAt(0)<32||c.charCodeAt(0)===127)||matches?.length!==1)continue;
     const target=matches[0];
     if(target.contains(control)||target.closest(excluded)||target.querySelector(excluded)||target.querySelector(controls))continue;
     if((target.textContent?.length||0)>1500||[...target.querySelectorAll('*')].some(child=>!child.matches('span,strong,em,b,i,small,br')))continue;

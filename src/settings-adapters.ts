@@ -50,7 +50,7 @@ export function settingsText(pluginId:string,text:string,el:Element):string|unde
  const suffix='), and can include your prompts and note contents in plain text.';
  if(!text.startsWith(prefix)||!text.endsWith(suffix))return;
  const path=text.slice(prefix.length,-suffix.length);
- if(!path||path.length>4096||/[\r\n\u0000]/.test(path)||!(/^[A-Za-z]:[\\/]/.test(path)||path.startsWith('/')))return;
+ if(!path||path.length>4096||[...path].some(c=>[0,10,13].includes(c.charCodeAt(0)))||!(/^[A-Za-z]:[\\/]/.test(path)||path.startsWith('/')))return;
  return `记录 Copilot 与智能体之间的后台消息，以便报告附带最近的活动记录。仅存储在本机的库外位置（${path}），可能包含明文提示词和笔记内容。`;
 }
 

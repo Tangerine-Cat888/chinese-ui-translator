@@ -2,7 +2,7 @@
 
 Translate recognizable English plugin interface labels into Simplified Chinese and reuse saved dictionaries offline. Plugin names, input values, notes and plugin source files are preserved.
 
-**Author:** Tangerine.Cat · **License:** MIT · **Version:** 0.3.13 · **Requires:** desktop Obsidian 1.15.0 or later.
+**Author:** Tangerine.Cat · **License:** MIT · **Version:** 0.3.14 · **Requires:** desktop Obsidian 1.15.0 or later.
 
 0.3.5 adds role-aware dictionaries, labels observed while visiting plugin settings, and restricted numeric templates. Visit the target settings page first, then explicitly translate or supplement its labels. Browsing alone sends no requests; unprocessed observations remain only in memory. Numeric templates support at most three simple numeric values in known UI calls, and only apply in a confirmed plugin area. Unknown or conflicting contexts remain unchanged.
 
