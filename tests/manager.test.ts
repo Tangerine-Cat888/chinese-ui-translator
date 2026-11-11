@@ -1,11 +1,84 @@
 // @vitest-environment jsdom
 import {test,expect,vi} from 'vitest';
 import {resolve} from 'node:path';
+vi.mock('../src/translation-confirm',()=>({confirmLargeTranslation:vi.fn(async()=>true)}));
+import {confirmLargeTranslation} from '../src/translation-confirm';
 vi.mock('obsidian',()=>({
  Plugin:class{app:any;manifest:any;constructor(app:any,manifest:any){this.app=app;this.manifest=manifest;}async loadData(){return this.app.savedData??null;}async saveData(value:unknown){this.app.savedData=structuredClone(value);}addStatusBarItem(){return document.createElement('div');}addSettingTab(){}addCommand(){}registerEvent(){}},
  PluginSettingTab:class{},Setting:class{},Notice:class{},requestUrl:vi.fn()
 }));
 import Manager from '../src/manager';import {requestUrl} from 'obsidian';
+
+test('restoring a Copilot dictionary also restores local adapter fallbacks without network requests',async()=>{
+ const old=process.env.APPDATA;process.env.APPDATA=resolve('tests/artifacts','manager-fallback-'+Date.now());
+ const root=document.createElement('div');root.innerHTML='<span class="tw-text-xs tw-text-muted">3 loaded</span>';document.body.append(root);
+ const app:any={vault:{configDir:'.obsidian',adapter:{getBasePath:()=>'/fixture-fallback',exists:async()=>false,read:async()=>''}},plugins:{manifests:{copilot:{id:'copilot',name:'Copilot',version:'1'}}},setting:{activeTab:{id:'copilot',containerEl:root}},workspace:{containerEl:document.body,on:()=>({}),onLayoutReady:(f:()=>void)=>f(),iterateAllLeaves:()=>{}}};
+ const p=new Manager(app,{id:'chinese-ui-translator'}as any);vi.mocked(requestUrl).mockReset();
+ try{
+  await p.onload();expect(root.textContent).toBe('3 loaded');
+  await p.catalog.save({pluginId:'copilot',version:'1',sourceHash:'test',language:'简体中文',enabled:true,updatedAt:'now',strings:{}});
+  await p.setEnabled('copilot',true);expect(root.textContent).toBe('3 项已加载');
+  await p.setEnabled('copilot',false);expect(root.textContent).toBe('3 loaded');
+  await p.setEnabled('copilot',true);expect(root.textContent).toBe('3 项已加载');expect(requestUrl).not.toHaveBeenCalled();
+ }finally{p.onunload();root.remove();if(old===undefined)delete process.env.APPDATA;else process.env.APPDATA=old;}
+});
+test('checkpoints resume after cancellation, reload, source changes and partial response failure',async()=>{
+ const old=process.env.APPDATA;process.env.APPDATA=resolve('tests/artifacts','manager-resume-'+Date.now());
+ let labels=Array.from({length:25},(_,i)=>`Resume feature ${i}`);
+ const app:any={vault:{configDir:'.obsidian',adapter:{getBasePath:()=>'/fixture-resume',exists:async()=>false,read:async()=>labels.map(text=>`x.setName(${JSON.stringify(text)});`).join('')}},plugins:{manifests:{fixture:{id:'fixture',name:'Fixture Plugin',version:'1'}}},workspace:{containerEl:document.body,on:()=>({}),onLayoutReady:(f:()=>void)=>f(),iterateAllLeaves:()=>{}}};
+ let fail=false;const sent:string[]=[];
+ vi.mocked(requestUrl).mockReset();vi.mocked(confirmLargeTranslation).mockClear();
+ vi.mocked(requestUrl).mockImplementation((async(args:any)=>{
+  const items=JSON.parse(JSON.parse(args.body).messages[1].content);sent.push(...items.map((item:any)=>item.text));
+  return {status:200,json:{choices:[{message:{content:JSON.stringify(Object.fromEntries(items.map((item:any,index:number)=>[item.id,fail&&index===0?'':'译文 '+item.text])))}}]}};
+ })as any);
+ let p=new Manager(app,{id:'chinese-ui-translator'}as any);
+ try{
+  await p.onload();await p.saveService('custom',{baseUrl:'https://example.invalid',model:'test',apiKey:'',plan:'free'});
+  await expect(p.translatePlugin('fixture',s=>{if(s==='正在汉化：已完成 12/25 条')p.cancel();})).rejects.toThrow('已取消');
+  expect(sent).toEqual(labels.slice(0,12));expect(p.catalog.get('fixture','简体中文')).toBeUndefined();
+  p.onunload();p=new Manager(app,{id:'chinese-ui-translator'}as any);await p.onload();
+  labels=[...labels.slice(1),'Resume feature 25'];app.plugins.manifests.fixture.version='2';sent.length=0;fail=true;
+  await expect(p.translatePlugin('fixture')).rejects.toThrow('格式无效');
+  expect(sent).toEqual(labels.slice(11,23));expect(p.catalog.get('fixture','简体中文')).toBeUndefined();
+  p.onunload();p=new Manager(app,{id:'chinese-ui-translator'}as any);await p.onload();sent.length=0;fail=false;
+  expect(await p.translatePlugin('fixture')).toEqual({total:25,translated:3});
+  expect(sent).toEqual(['Resume feature 12','Resume feature 24','Resume feature 25']);
+  expect(Object.keys(p.catalog.get('fixture','简体中文')!.strings).sort()).toEqual([...labels].sort());
+  expect(vi.mocked(confirmLargeTranslation).mock.calls.map(call=>call[1])).toEqual([25,14,3]);
+ }finally{p.onunload();if(old===undefined)delete process.env.APPDATA;else process.env.APPDATA=old;vi.mocked(requestUrl).mockReset();}
+});
+test('large plugins translate in bounded batches, reload offline, and preserve the dictionary on cancellation or failure',async()=>{
+ const old=process.env.APPDATA;process.env.APPDATA=resolve('tests/artifacts','manager-large-'+Date.now());
+ const labels=Array.from({length:3001},(_,i)=>`Feature label ${i}`);
+ let source=labels.map(text=>`x.setName(${JSON.stringify(text)});`).join('');
+ const read=vi.fn(async()=>source),write=vi.fn();
+ const app:any={vault:{configDir:'.obsidian',adapter:{getBasePath:()=>'/fixture-large',read,write,exists:async()=>false}},plugins:{manifests:{fixture:{id:'fixture',name:'Fixture Plugin',version:'1'}}},workspace:{containerEl:document.body,on:()=>({}),onLayoutReady:(f:()=>void)=>f(),iterateAllLeaves:()=>{}}};
+ vi.mocked(requestUrl).mockReset();
+ vi.mocked(requestUrl).mockImplementation((async(args:any)=>{
+  const items=JSON.parse(JSON.parse(args.body).messages[1].content);
+  expect(items.length).toBeLessThanOrEqual(12);
+  return {status:200,json:{choices:[{message:{content:JSON.stringify(Object.fromEntries(items.map((item:any)=>[item.id,'功能 '+item.text])))}}]}};
+ })as any);
+ let p=new Manager(app,{id:'chinese-ui-translator'}as any);
+ try{
+  await p.onload();await p.saveService('custom',{baseUrl:'https://example.invalid',model:'test',apiKey:'',plan:'free'});
+  vi.mocked(confirmLargeTranslation).mockResolvedValueOnce(false);
+  await expect(p.translatePlugin('fixture')).rejects.toThrow('已取消翻译');expect(requestUrl).not.toHaveBeenCalled();
+  expect(await p.translatePlugin('fixture')).toEqual({total:3001,translated:3001});
+  expect(Object.keys(p.catalog.get('fixture','简体中文')!.strings)).toEqual(labels);
+  const calls=vi.mocked(requestUrl).mock.calls.length;p.onunload();
+  p=new Manager(app,{id:'chinese-ui-translator'}as any);await p.onload();
+  expect(await p.translatePlugin('fixture')).toEqual({total:3001,translated:0});expect(requestUrl).toHaveBeenCalledTimes(calls);
+  const saved=JSON.stringify(p.catalog.get('fixture','简体中文'));
+  source+='x.setName("New feature label");';
+  await expect(p.translatePlugin('fixture',progress=>{if(progress.startsWith('正在汉化'))p.cancel();})).rejects.toThrow();
+  expect(JSON.stringify(p.catalog.get('fixture','简体中文'))).toBe(saved);
+  vi.mocked(requestUrl).mockRejectedValue(new Error('offline'));
+  await expect(p.translatePlugin('fixture')).rejects.toThrow('无法连接');
+  expect(JSON.stringify(p.catalog.get('fixture','简体中文'))).toBe(saved);expect(write).not.toHaveBeenCalled();
+ }finally{p.onunload();if(old===undefined)delete process.env.APPDATA;else process.env.APPDATA=old;vi.mocked(requestUrl).mockReset();}
+},30000);
 test('role-aware translation and numeric templates persist, scope owned views, and reject broken model placeholders',async()=>{
  const old=process.env.APPDATA;process.env.APPDATA=resolve('tests/artifacts','manager-context-'+Date.now());
  const root=document.createElement('div');root.innerHTML='<button>Open</button><div class="setting-item-description">Open</div><div class="setting-item-description">Found 3 results</div>';document.body.append(root);
@@ -78,6 +151,7 @@ test('one-click persists translations; reopen, reload and incremental scan make 
   await p.setEnabled('fixture',false);expect(modal.querySelector('.modal-title')!.textContent).toBe('Enable feature');modal.remove();
  }finally{p.onunload();root.remove();if(old===undefined)delete process.env.APPDATA;else process.env.APPDATA=old;}
 });
+
 
 test('manager migrates saved keys and resolves the current keychain value for every model request',async()=>{
  const old=process.env.APPDATA;process.env.APPDATA=resolve('tests/artifacts','manager-keychain-'+Date.now());

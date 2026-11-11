@@ -71,8 +71,7 @@ export async function extractLabels(source:string,names:Set<string>,signal?:Abor
   const token=tokens.getToken() as ReturnType<typeof tokens.getToken> & {value?:unknown};if(token.type.label==='eof')break;
   if(token.type.label==='string'&&typeof token.value==='string'&&(positions.has(token.start)?isLabelText(token.value,names):isUiCandidate(token.value,names)))strings.add(token.value.trim());
   if(token.type.label==='template'&&typeof token.value==='string'&&source[token.end]==='`'&&source[token.start-1]==='`'&&(positions.has(token.start)?isLabelText(token.value,names):isUiCandidate(token.value,names)))strings.add(token.value.trim());
-  if(strings.size>3000)throw new Error('可识别词条超过 3000 条，暂不自动处理此大型插件');
   if(++count%3000===0)await yieldToUi();
  }
- const result=[...new Set([...strings,...templates])];if(result.length>3000)throw new Error('可识别词条超过 3000 条，暂不自动处理此大型插件');return result;
+ return [...new Set([...strings,...templates])];
 }

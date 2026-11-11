@@ -6,12 +6,15 @@ import {SettingsStore} from './storage';
 import {Catalog} from './catalog';
 import {extractLabels} from './scanner';
 import {LocalUi,collectUiLabels} from './local-ui';
+import {settingsLabels,settingsText,chatLabels,chatText} from './settings-adapters';
 import {detectInterfaceLanguage,type LanguageResult} from './language';
 import {defaultClock,type Clock} from './clock';
 import {services,serviceTransport,engineConfig,listServiceModels,type ServiceId,type ServiceProfile} from './services';
 import {defaults as preferenceDefaults,loadPreferences,profileFor,type Preferences} from './preferences';
 import {viewOwner,type UiEntry} from './ui-context';
 import {templateSource} from './numeric-template';
+import {ProgressStore,type ProgressItem} from './translation-progress';
+import {confirmLargeTranslation} from './translation-confirm';
 
 interface Settings extends Config {uiEnabled:boolean;rememberApiKey:boolean;excludedPlugins:string}
 const defaults:Settings={endpoint:'',model:'',apiKey:'',language:'简体中文',online:false,glossary:{},uiEnabled:true,rememberApiKey:false,excludedPlugins:''};
@@ -34,7 +37,7 @@ export default class TranslationManager extends Plugin {
   const session=this.sessions.get(tab.containerEl)?.session;
   const entries=this.observedContexts.get(key)||new Map<string,UiEntry>();
   const remember=(entry:UiEntry)=>{if(entries.size<3000)entries.set(JSON.stringify([entry.text,entry.role]),entry);};
-  for(const label of session?session.collect(this.names(),remember):collectUiLabels(tab.containerEl,this.names(),undefined,undefined,remember)){if(saved.size>=3000)break;saved.add(label);}
+  for(const label of session?session.collect(this.names(),remember):collectUiLabels(tab.containerEl,this.names(),undefined,undefined,remember,settingsLabels(tab.id))){if(saved.size>=3000)break;saved.add(label);}
   this.observedContexts.set(key,entries);
   this.observedLabels.set(key,saved);
  }
@@ -125,7 +128,7 @@ export default class TranslationManager extends Plugin {
   for(const [root,id] of roots)if(!id&&[...roots].some(([parent,owner])=>owner&&parent!==root&&parent.contains(root)))roots.delete(root);
   const names=this.names();
   for(const [root,record] of this.sessions)if(!root.isConnected||!roots.has(root)||roots.get(root)!==record.id){record.session.stop();this.sessions.delete(root);}
-  for(const [root,id] of roots)if(!this.sessions.has(root))this.sessions.set(root,{id,session:new LocalUi(root,(text,role)=>this.catalog.lookup(text,this.settings.language,id||undefined,names,installed,role),this.clock)});
+  for(const [root,id] of roots)if(!this.sessions.has(root))this.sessions.set(root,{id,session:new LocalUi(root,(text,role)=>this.catalog.lookup(text,this.settings.language,id||undefined,names,installed,role),this.clock,root===tab?.containerEl?settingsLabels(id):chatLabels(id,root.dataset.type||''),root===tab?.containerEl?(text,el)=>this.catalog.get(id,this.settings.language)?.enabled?settingsText(id,text,el):undefined:text=>this.catalog.get(id,this.settings.language)?.enabled?chatText(id,root.dataset.type||'',text):undefined)});
   this.updateStatus();
  }
  private updateStatus(){if(this.status)this.status.textContent=this.busyId?'插件汉化：处理中':this.settings.uiEnabled?'插件汉化：已开启':'插件汉化：已暂停';}
@@ -152,26 +155,45 @@ export default class TranslationManager extends Plugin {
    const extracted=await extractLabels(source,this.names(),abort.signal);const templates=extracted.filter(text=>text.includes('⟦BA0⟧'));
    const normalize=(text:string)=>templateSource(text,templates);
    const labels=[...new Set([...extracted,...[...(this.observedLabels.get(id+'@'+manifest.version)||[])].map(normalize)])];const previous=this.catalog.get(id,language);
-   if(labels.length>3000)throw new Error('可识别词条超过 3000 条，暂不自动处理此大型插件');
+   const progressStore=new ProgressStore(this.store.directory,id,language);
+   const configHash=createHash('sha256').update(JSON.stringify([this.preferences.serviceId,config.endpoint,config.model,language,config.glossary])).digest('hex');
+   const loaded=await progressStore.load();
+   const checkpoint=loaded?.configHash===configHash?loaded:undefined;
+   if(checkpoint?.sourceHash===hash)for(const item of checkpoint.items)if(!labels.includes(item.text))labels.push(item.text);
    const strings={...previous?.strings};
    const contexts=Object.fromEntries(Object.entries(previous?.contexts||{}).map(([role,entries])=>[role,{...entries}]));
    const roles=new Map<string,Set<string>>();
    for(const entry of this.observedContexts.get(id+'@'+manifest.version)?.values()||[]){const text=normalize(entry.text),set=roles.get(text)||new Set<string>();set.add(entry.role);roles.set(text,set);}
-   const missing=labels.flatMap(text=>{
+   const candidates=new Set(labels);
+   const resumed=(checkpoint?.items||[]).filter(item=>candidates.has(item.text));
+   for(const item of resumed){
+    if(item.role){const set=roles.get(item.text)||new Set<string>();set.add(item.role);roles.set(item.text,set);}
+    if(item.value===undefined)continue;
+    if(item.role){contexts[item.role]||={};if(!Object.hasOwn(contexts[item.role],item.text))contexts[item.role][item.text]=item.value;}
+    if(!Object.hasOwn(strings,item.text))strings[item.text]=item.value;
+   }
+   const missing:ProgressItem[]=labels.flatMap(text=>{
     const observed=roles.get(text);
     return observed?.size?[...observed].filter(role=>!Object.hasOwn(contexts[role]||{},text)).map(role=>({text,role})):Object.hasOwn(strings,text)?[]:[{text,role:''}];
    });
-   if(missing.length>3000)throw new Error('新增上下文词条超过 3000 条，暂不自动处理');
    if(!labels.length)throw new Error('没有识别到可翻译的英文词条；请先打开目标插件设置页，再返回补翻');
+   if(!await confirmLargeTranslation(this.app,missing.length,abort.signal))throw new Error('已取消翻译，已保存进度可在下次继续');
+   if(abort.signal.aborted||this.stopped)throw new Error('已取消翻译，已保存进度可在下次继续');
+   const progress={sourceHash:hash,configHash,items:[...resumed.filter(item=>item.value!==undefined),...missing]};
+   if(missing.length)await progressStore.save(progress);
    engine=new Engine(config,this.transport(),this.clock);
+   report(`正在汉化：已完成 0/${missing.length} 条，本次仅处理剩余词条`);
    for(let i=0;i<missing.length;i+=12){
-    if(abort.signal.aborted)throw new Error('已取消，原汉化词典未改变');report(`正在汉化 ${Math.min(i+12,missing.length)}/${missing.length} 条新增词条`);
-    const batch=missing.slice(i,i+12);const values=await Promise.all(batch.map(({text,role})=>engine!.translate({scope:'ui',text,context:`Plugin interface: ${id}; UI role: ${role||'unspecified'}; keep product names unchanged; preserve numeric placeholder tokens exactly`},abort.signal)));
-    batch.forEach(({text,role},j)=>{if(role){contexts[role]||={};contexts[role][text]=values[j];}if(!Object.hasOwn(strings,text))strings[text]=values[j];});
+    if(abort.signal.aborted)throw new Error('已取消翻译，已保存进度可在下次继续');
+    const batch=missing.slice(i,i+12);const values=await Promise.allSettled(batch.map(({text,role})=>engine!.translate({scope:'ui',text,context:`Plugin interface: ${id}; UI role: ${role||'unspecified'}; keep product names unchanged; preserve numeric placeholder tokens exactly`},abort.signal)));
+    batch.forEach((item,j)=>{const result=values[j];if(result.status==='fulfilled'){item.value=result.value;const {text,role}=item;if(role){contexts[role]||={};contexts[role][text]=result.value;}if(!Object.hasOwn(strings,text))strings[text]=result.value;}});
+    await progressStore.save(progress);
+    report(`正在汉化：已完成 ${missing.filter(item=>item.value!==undefined).length}/${missing.length} 条`);
+    const failure=values.find(result=>result.status==='rejected');if(failure?.status==='rejected')throw failure.reason;
    }
-   if(abort.signal.aborted||this.stopped)throw new Error('已取消，原汉化词典未改变');
+   if(abort.signal.aborted||this.stopped)throw new Error('已取消翻译，已保存进度可在下次继续');
    const currentSource=await this.app.vault.adapter.read(path);if(createHash('sha256').update(currentSource).digest('hex')!==hash)throw new Error('插件代码在汉化期间发生变化，请重新汉化');
-   if(abort.signal.aborted||this.stopped)throw new Error('已取消，原汉化词典未改变');
+   if(abort.signal.aborted||this.stopped)throw new Error('已取消翻译，已保存进度可在下次继续');
    await this.catalog.save({pluginId:id,version:manifest.version,sourceHash:hash,language,enabled:true,updatedAt:new Date().toISOString(),strings,contexts});
    this.stopSessions();this.refresh();const total=Object.keys(strings).length;report(`已保存 ${total} 条；新增翻译 ${missing.length} 条`);return {total,translated:missing.length};
   }finally{engine?.dispose();this.busyId='';this.job=undefined;this.updateStatus();if(!this.stopped&&this.host.setting?.activeTab?.id===this.manifest.id&&this.tab.containerEl?.isConnected)this.tab.update();}
