@@ -3,7 +3,7 @@ import {defaultClock} from './clock';
 import {abortError,type Config,type Transport} from './core';
 import {isRecord} from './validation';
 export type ServiceId='deepseek'|'openai'|'openrouter'|'custom'|'deepl'|'deeplx';
-export interface ServiceProfile {apiKey:string;baseUrl:string;model:string;plan:'free'|'pro'}
+export interface ServiceProfile {secretName?:string;apiKey:string;baseUrl:string;model:string;plan:'free'|'pro'}
 export const services:Record<ServiceId,{name:string;kind:'ai'|'machine';baseUrl:string;model:string}>={
  deepseek:{name:'DeepSeek',kind:'ai',baseUrl:'https://api.deepseek.com',model:'deepseek-flash'},
  openai:{name:'OpenAI',kind:'ai',baseUrl:'https://api.openai.com/v1',model:''},

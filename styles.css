@@ -35,6 +35,14 @@
 .ba-list-summary { margin: 0 0 6px; }
 .ba-service-feedback:empty { display: none; }
 .ba-service-feedback { color: var(--text-normal); }
+.ba-keychain-guide { margin: 8px 0 12px; padding: 14px 16px; border: 1px solid var(--background-modifier-border); border-radius: 10px; background: var(--background-secondary); font-size: 12px; line-height: 1.65; color: var(--text-muted); }
+.ba-keychain-guide-title { margin-bottom: 10px; color: var(--text-normal); font-size: 13px; font-weight: 600; }
+.ba-keychain-guide ol { margin: 0; padding: 0; list-style: none; counter-reset: keychain-step; }
+.ba-keychain-guide li { position: relative; padding-left: 28px; margin: 0; counter-increment: keychain-step; overflow-wrap: anywhere; }
+.ba-keychain-guide li + li { margin-top: 9px; }
+.ba-keychain-guide li::before { content: counter(keychain-step); position: absolute; left: 0; top: 1px; display: grid; place-items: center; width: 19px; height: 19px; border-radius: 50%; background: var(--background-modifier-hover); color: var(--text-accent); font-size: 11px; font-weight: 600; }
+.ba-keychain-guide li strong { margin-right: 8px; font-weight: 600; color: var(--text-normal); }
+.ba-keychain-guide .ba-keychain-guide-footnote { margin: 12px 0 0; padding-top: 10px; border-top: 1px solid var(--background-modifier-border); font-size: 11px; }
 .ba-empty { padding: 16px 0; }
 .ba-advanced { margin: 8px 0; }
 .ba-advanced > summary { cursor: pointer; color: var(--text-muted); font-size: 13px; }

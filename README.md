@@ -17,7 +17,7 @@ Translate recognizable English plugin interface labels into Simplified Chinese a
 
 The plugin is free and open source, with no membership or paid unlock. Third-party services may require accounts, API keys and payment. Only explicit translation, model listing and connection tests send requests. Translation sends extracted static candidate labels and recognized labels observed in visited plugin settings to the selected service, with plugin ID and control-role context for AI providers; candidates may include non-interface static text. It does not upload complete source files, note bodies or input values. Observed descriptions and placeholders may contain dynamically inserted context; the plugin cannot identify and remove all sensitive content. AI services receive role context; DeepL/DeepLX receive the label text only.
 
-Service configuration and keys are stored **in plaintext** in this plugin's data.json and may be synced with its folder. Clear the key and save to remove it. Dictionaries use a vault-path hash and are stored **outside the vault**, under `%APPDATA%/ObsidianBilingualAssistant` on Windows, or the user's `.config/ObsidianBilingualAssistant` directory on other desktop systems. Node filesystem access is required for this existing local storage and one-time legacy migration. Uninstalling does not delete these files.
+Service configuration and secret names are stored in this plugin's data.json; API keys are managed by Obsidian SecretStorage. Select or create a key using the native keychain control. Clearing the association and saving does not delete a shared secret. Existing plaintext keys are migrated only after keychain write/read verification; migration failures preserve the original configuration. Keychain storage is local to Obsidian; this feature does not promise OS-level encryption or key synchronization. Dictionaries use a vault-path hash and are stored **outside the vault**, under `%APPDATA%/ObsidianBilingualAssistant` on Windows, or the user's `.config/ObsidianBilingualAssistant` directory on other desktop systems. Node filesystem access is required for this existing local storage and one-time legacy migration. Uninstalling does not delete these files.
 
 Tested on Windows with Obsidian 1.15.0 using a local simulated service, including light/dark themes and narrow windows. Other desktop operating systems, host versions and real provider accounts were not tested in this release. Dynamic strings, native menus, images, iframes and some controls may remain untranslated. Options without an explicit value keep their original text. No note translation or mobile support. Canceling prevents local results from being applied but may not stop server execution or billing.
 
@@ -79,7 +79,8 @@ Screenshots use a separate test vault and simulated content, with no personal no
 
 - 只有主动汉化、获取模型或测试连接才访问所选服务。AI 翻译发送静态候选、已访问设置页的候选标签及插件 ID/控件角色上下文；DeepL/DeepLX 仅发送词条，不使用角色提示。静态候选可能包含非界面文本，不上传整个插件源码、笔记正文或其他插件配置。
 - 扫描只读取目标插件 main.js，不执行被扫描代码，不改写插件或笔记文件。显示层只修改可识别 DOM 文本和标签属性，支持恢复。
-- 服务配置与密钥明文保存在本插件 `data.json`，可能随插件目录同步。清空密钥后保存即可清除；已有词典仍可使用。安装包不包含任何配置或密钥。
+- 服务配置与密钥名称保存在本插件 `data.json`，密钥由 Obsidian 钥匙串管理。通过原生控件选择或创建密钥；清空关联后保存不会删除共享密钥。钥匙串密钥缺失时会提示重新关联。安装包不包含任何配置或密钥。
+- 已有明文密钥会先写入钥匙串并回读验证，再从当前配置中移除；迁移失败保留原配置。旧插件目录、旧加密文件和历史备份保留，不会自动清理。钥匙串是 Obsidian 本地存储，本插件不承诺系统级加密或跨设备密钥同步。
 - 词典保存在知识库外 `ObsidianBilingualAssistant/<库路径 SHA256 前20位>/translations.json`，用于跨重启离线复用。Windows 为 `%APPDATA%`；其他桌面系统回退到用户主目录的 `.config`。库路径变化会对应不同词典目录。
 - 首次升级可以读取同目录的旧加密 `settings.json` 并迁移。标准 data.json 存在后不再读回旧密钥；旧文件保留，避免清空后自动复活。
 - 失败或取消不覆盖已保存词典。取消使本地结果失效，已发出的服务器请求仍可能执行和计费。卸载不自动删除配置及词典。

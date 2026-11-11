@@ -78,3 +78,30 @@ test('one-click persists translations; reopen, reload and incremental scan make 
   await p.setEnabled('fixture',false);expect(modal.querySelector('.modal-title')!.textContent).toBe('Enable feature');modal.remove();
  }finally{p.onunload();root.remove();if(old===undefined)delete process.env.APPDATA;else process.env.APPDATA=old;}
 });
+
+test('manager migrates saved keys and resolves the current keychain value for every model request',async()=>{
+ const old=process.env.APPDATA;process.env.APPDATA=resolve('tests/artifacts','manager-keychain-'+Date.now());
+ const secrets=new Map<string,string>();
+ const app:any={
+  secretStorage:{getSecret:(name:string)=>secrets.get(name)??null,setSecret:(name:string,value:string)=>secrets.set(name,value)},
+  savedData:{schemaVersion:1,serviceId:'custom',uiEnabled:true,profiles:{custom:{apiKey:'OLD-KEY',baseUrl:'https://example.invalid/v1',model:'test',plan:'free'}}},
+  vault:{configDir:'.obsidian',adapter:{getBasePath:()=>'/fixture-keychain',exists:async()=>false}},
+  plugins:{manifests:{}},workspace:{containerEl:document.body,on:()=>({}),onLayoutReady:(f:()=>void)=>f(),iterateAllLeaves:()=>{}}
+ };
+ const p=new Manager(app,{id:'chinese-ui-translator'}as any);
+ vi.mocked(requestUrl).mockReset();vi.mocked(requestUrl).mockResolvedValue({status:200,json:{data:[{id:'test'}]}}as any);
+ try{
+  await p.onload();
+  expect(JSON.stringify(app.savedData)).not.toContain('OLD-KEY');
+  expect(app.savedData.profiles.custom.apiKey).toBeUndefined();
+  const profile=p.preferences.profiles.custom!;
+  await p.fetchModels('custom',profile);
+  expect((vi.mocked(requestUrl).mock.calls[0][0]as any).headers.Authorization).toBe('Bearer OLD-KEY');
+  secrets.set(profile.secretName!,'ROTATED-KEY');
+  await p.fetchModels('custom',profile);
+  expect((vi.mocked(requestUrl).mock.calls[1][0]as any).headers.Authorization).toBe('Bearer ROTATED-KEY');
+  secrets.clear();
+  await expect(p.fetchModels('custom',profile)).rejects.toThrow('不存在');
+  expect(requestUrl).toHaveBeenCalledTimes(2);
+ }finally{p.onunload();if(old===undefined)delete process.env.APPDATA;else process.env.APPDATA=old;}
+});

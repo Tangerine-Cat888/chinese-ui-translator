@@ -3,6 +3,8 @@ vi.mock('obsidian',()=>({requestUrl:vi.fn()}));
 import {requestUrl} from 'obsidian';
 import {defaultProfile,serviceTransport,serviceUrl,listServiceModels} from '../src/services';
 import {loadPreferences,profileFor} from '../src/preferences';
+const keys=new Map<string,string>();
+const keychain={getSecret:(id:string)=>keys.get(id)??null,setSecret:(id:string,value:string)=>{keys.set(id,value);}};
 beforeEach(()=>vi.mocked(requestUrl).mockReset());
 test.each([null, [], {translations:[null, {text:'ok'}]}, {translations:[{text:4},{text:'ok'}]}])('rejects malformed DeepL responses without leaking raw data: %j',async json=>{
  vi.mocked(requestUrl).mockResolvedValue({status:200,json} as any);
@@ -17,22 +19,22 @@ test('plugin ID migration preserves profiles and writes once; clearing never rei
  let data:any=null;
  const previous=vi.fn().mockResolvedValue({schemaVersion:1,serviceId:'custom',uiEnabled:false,profiles:{custom:{...defaultProfile('custom'),apiKey:'MIGRATION-FIXTURE',model:'saved-model'}}});
  const host={loadData:async()=>data,saveData:async(value:unknown)=>{data=structuredClone(value);}};
- const p=await loadPreferences(host,vi.fn(),previous);expect(p.uiEnabled).toBe(false);expect(profileFor(p).model).toBe('saved-model');expect(data.profiles.custom.apiKey).toBe('MIGRATION-FIXTURE');
- data.profiles.custom.apiKey='';expect(profileFor(await loadPreferences(host,vi.fn(),previous)).apiKey).toBe('');expect(previous).toHaveBeenCalledTimes(1);
+ const p=await loadPreferences(host,vi.fn(),previous,keychain);expect(p.uiEnabled).toBe(false);expect(profileFor(p).model).toBe('saved-model');expect(keychain.getSecret(data.profiles.custom.secretName)).toBe('MIGRATION-FIXTURE');expect(data.profiles.custom.apiKey).toBeUndefined();
+ data.profiles.custom.apiKey='';expect(profileFor(await loadPreferences(host,vi.fn(),previous,keychain)).apiKey).toBe('');expect(previous).toHaveBeenCalledTimes(1);
 });
 test('malformed old ID configuration is preserved and never replaced with defaults',async()=>{
  const saveData=vi.fn();await expect(loadPreferences({loadData:async()=>null,saveData},vi.fn(),async()=>({schemaVersion:99}))).rejects.toThrow('格式不受支持');expect(saveData).not.toHaveBeenCalled();
 });
-test('migrate once to plain plugin data; clearing key never resurrects old encrypted settings',async()=>{
+test('migrate once to keychain references; clearing key never resurrects old encrypted settings',async()=>{
  let data:any=null;const legacy=vi.fn().mockResolvedValue({endpoint:'https://api.deepseek.com/chat/completions',apiKey:'FAKE-LEGACY-KEY',model:'old-model'});
  const host={loadData:async()=>data,saveData:async(value:unknown)=>{data=structuredClone(value);}};
- const prefs=await loadPreferences(host,legacy);expect(profileFor(prefs).apiKey).toBe('FAKE-LEGACY-KEY');expect(data.profiles.deepseek.apiKey).toBe('FAKE-LEGACY-KEY');
- data.profiles.deepseek.apiKey='';const cleared=await loadPreferences(host,legacy);expect(profileFor(cleared).apiKey).toBe('');expect(legacy).toHaveBeenCalledTimes(1);
+ const prefs=await loadPreferences(host,legacy,undefined,keychain);expect(profileFor(prefs).apiKey).toBe('');expect(keychain.getSecret(data.profiles.deepseek.secretName)).toBe('FAKE-LEGACY-KEY');expect(data.profiles.deepseek.apiKey).toBeUndefined();
+ data.profiles.deepseek.apiKey='';const cleared=await loadPreferences(host,legacy,undefined,keychain);expect(profileFor(cleared).apiKey).toBe('');expect(legacy).toHaveBeenCalledTimes(1);
 });
 test('provider profiles are isolated and full chat endpoint is normalized for model discovery',async()=>{
  const data={schemaVersion:1,serviceId:'custom',uiEnabled:true,profiles:{deepseek:{...defaultProfile('deepseek'),apiKey:'FIRST'},custom:{...defaultProfile('custom'),apiKey:'SECOND',baseUrl:'https://example.com/v1/chat/completions',model:'chosen'}}};
- const prefs=await loadPreferences({loadData:async()=>data,saveData:vi.fn()},vi.fn());
- expect(profileFor(prefs,'deepseek').apiKey).toBe('FIRST');expect(profileFor(prefs,'custom').apiKey).toBe('SECOND');expect(serviceUrl('custom',profileFor(prefs),true)).toBe('https://example.com/v1/models');
+ const prefs=await loadPreferences({loadData:async()=>data,saveData:vi.fn()},vi.fn(),undefined,keychain);
+ expect(keychain.getSecret(profileFor(prefs,'deepseek').secretName!)).toBe('FIRST');expect(keychain.getSecret(profileFor(prefs,'custom').secretName!)).toBe('SECOND');expect(serviceUrl('custom',profileFor(prefs),true)).toBe('https://example.com/v1/models');
 });
 test('DeepL batches plain text and preserves returned order without model or prompt fields',async()=>{
  vi.mocked(requestUrl).mockResolvedValue({status:200,json:{translations:[{text:'第一项'},{text:'第二项'}]}}as any);

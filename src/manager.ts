@@ -1,4 +1,5 @@
-import {Plugin,PluginSettingTab,Setting,Notice,type PluginManifest,type SettingDefinitionItem} from 'obsidian';
+import {savePreferences,resolveProfile} from './secrets';
+import {Plugin,PluginSettingTab,Setting,Notice,SecretComponent,type PluginManifest,type SettingDefinitionItem} from 'obsidian';
 import {createHash} from 'node:crypto';
 import {Engine,type Config,type Transport} from './core';
 import {SettingsStore} from './storage';
@@ -62,7 +63,7 @@ export default class TranslationManager extends Plugin {
    if(this.manifest.id!=='chinese-ui-translator')return null;
    const oldPath=`${this.app.vault.configDir}/plugins/bilingual-assistant/data.json`;
    return await this.app.vault.adapter.exists(oldPath)?JSON.parse(await this.app.vault.adapter.read(oldPath)) as unknown:null;
-  });this.preferencesReady=true;this.syncSettings();}catch(e){new Notice((e as Error).message);}
+  },this.app.secretStorage);this.preferencesReady=true;this.syncSettings();}catch(e){new Notice((e as Error).message);}
   try{await this.catalog.load();this.catalogReady=true;}catch{new Notice('汉化词典读取失败，已保留文件，暂停词典写入');}
   // Migration deliberately disables the old automatic-network mode.
   this.settings.online=false;
@@ -129,19 +130,19 @@ export default class TranslationManager extends Plugin {
  }
  private updateStatus(){if(this.status)this.status.textContent=this.busyId?'插件汉化：处理中':this.settings.uiEnabled?'插件汉化：已开启':'插件汉化：已暂停';}
  private syncSettings(){const p=profileFor(this.preferences);let endpoint='';try{endpoint=engineConfig(this.preferences.serviceId,p).endpoint;}catch{/* An incomplete draft has no usable endpoint yet. */}this.settings={...this.settings,uiEnabled:this.preferences.uiEnabled,apiKey:p.apiKey,endpoint,model:services[this.preferences.serviceId].kind==='ai'?p.model:this.preferences.serviceId,language:'简体中文',online:false};}
- private async persist(preferences:Preferences){if(!this.preferencesReady)throw new Error('配置未成功读取，暂不覆盖原文件');await this.saveData(preferences);this.preferences=preferences;this.syncSettings();}
+ private async persist(preferences:Preferences){if(!this.preferencesReady)throw new Error('配置未成功读取，暂不覆盖原文件');this.preferences=await savePreferences(this,preferences,this.app.secretStorage);this.syncSettings();}
  async applySettings(settings:Settings){if(this.busyId||this.serviceBusy)throw new Error('请先等待当前任务完成');await this.persist({...this.preferences,uiEnabled:settings.uiEnabled});this.stopSessions();this.refresh();}
  async saveService(id:ServiceId,profile:ServiceProfile){if(this.busyId)throw new Error('请先等待汉化完成');await this.persist({...this.preferences,serviceId:id,profiles:{...this.preferences.profiles,[id]:{...profile}}});}
  async setEnabled(id:string,enabled:boolean){if(!this.catalogReady)throw new Error('词典尚未正常加载');if(this.busyId)throw new Error('请先等待当前汉化完成');const pack=this.catalog.get(id,this.settings.language);if(!pack)return;await this.catalog.save({...pack,enabled});this.stopSessions();this.refresh();}
  cancel(){this.job?.abort();}
- private transport():Transport{return serviceTransport(this.preferences.serviceId,profileFor(this.preferences));}
- async fetchModels(id:ServiceId,profile:ServiceProfile){if(this.stopped)throw new Error('插件已卸载');const controller=new AbortController();this.serviceJobs.add(controller);try{return await listServiceModels(id,profile,controller.signal);}finally{this.serviceJobs.delete(controller);}}
- async testService(id:ServiceId,profile:ServiceProfile){if(this.stopped)throw new Error('插件已卸载');const config=engineConfig(id,profile);const engine=new Engine(config,serviceTransport(id,profile),this.clock);const controller=new AbortController();this.serviceJobs.add(controller);try{return await engine.translate({scope:'ui',text:'The connection works.',context:'Connection test'},controller.signal);}finally{engine.dispose();this.serviceJobs.delete(controller);}}
+ private transport():Transport{return serviceTransport(this.preferences.serviceId,resolveProfile(profileFor(this.preferences),this.app.secretStorage));}
+ async fetchModels(id:ServiceId,profile:ServiceProfile){if(this.stopped)throw new Error('插件已卸载');profile=resolveProfile(profile,this.app.secretStorage);const controller=new AbortController();this.serviceJobs.add(controller);try{return await listServiceModels(id,profile,controller.signal);}finally{this.serviceJobs.delete(controller);}}
+ async testService(id:ServiceId,profile:ServiceProfile){if(this.stopped)throw new Error('插件已卸载');profile=resolveProfile(profile,this.app.secretStorage);const config=engineConfig(id,profile);const engine=new Engine(config,serviceTransport(id,profile),this.clock);const controller=new AbortController();this.serviceJobs.add(controller);try{return await engine.translate({scope:'ui',text:'The connection works.',context:'Connection test'},controller.signal);}finally{engine.dispose();this.serviceJobs.delete(controller);}}
  async translatePlugin(id:string,onProgress:(s:string)=>void=()=>{}){
   if(this.busyId||this.serviceBusy)throw new Error('已有任务正在进行');if(!this.catalogReady)throw new Error('词典尚未正常加载');if(!this.preferencesReady)throw new Error('请先检查配置文件');
   const manifest=this.host.plugins.manifests[id];if(!manifest||id===this.manifest.id)throw new Error('未找到目标插件');
   if(!this.settings.endpoint||!this.settings.model)throw new Error('请先保存翻译服务地址和模型');
-  const config={...this.settings,online:true,glossary:{...this.settings.glossary}};const language=config.language;const abort=new AbortController();this.job=abort;this.busyId=id;this.updateStatus();
+  const config={...this.settings,...engineConfig(this.preferences.serviceId,resolveProfile(profileFor(this.preferences),this.app.secretStorage)),online:true,glossary:{...this.settings.glossary}};const language=config.language;const abort=new AbortController();this.job=abort;this.busyId=id;this.updateStatus();
   const report=(s:string)=>{this.progress=s;onProgress(s);};let engine:Engine|undefined;
   try{
    report('正在扫描插件界面词条…');
@@ -232,13 +233,21 @@ class ManagerSettings extends PluginSettingTab {
  private serviceSettings(el:HTMLElement){
   const p=this.manager;let selected=this.selected??p.preferences.serviceId;
   const {drafts,models,manual}=this;
-  const {caption:summary,body}=this.section(el,'service','翻译服务',`当前服务：${services[p.preferences.serviceId].name}`,!profileFor(p.preferences).apiKey);
+  const {caption:summary,body}=this.section(el,'service','翻译服务',`当前服务：${services[p.preferences.serviceId].name}`,!profileFor(p.preferences).secretName);
   const form=body.createDiv();const feedback=body.createEl('p',{cls:'ba-service-feedback'});feedback.setAttribute('aria-live','polite');
-  body.createEl('p',{cls:'ba-settings-note',text:'密钥随本插件配置保存在库内 data.json。清空密钥后保存即可清除；已保存的汉化词典不受切换服务影响。'});
+  const guide=body.createEl('aside',{cls:'ba-keychain-guide',attr:{'aria-label':'首次配置密钥'}});
+  guide.createDiv({cls:'ba-keychain-guide-title',text:'首次配置密钥'});
+  const steps=guide.createEl('ol');
+  for(const [title,description] of [
+   ['添加密钥','点击 API Key 旁的“链接…”（已关联时为“更改”），再选“添加密钥…”。'],
+   ['填写并选择','ID 是密钥名称，例如 deepseek；密钥值粘贴服务商提供的 API Key。保存后选中它，再保存。'],
+   ['验证连接','回到这里，点击“保存并测试”，看到“测试成功”即可开始汉化。']
+  ]){const item=steps.createEl('li');item.createEl('strong',{text:title});item.createSpan({text:description});}
+  guide.createEl('p',{cls:'ba-keychain-guide-footnote',text:'已有密钥？直接从钥匙串中选择即可。解除关联不会删除共享密钥，可在 Obsidian「设置 → 钥匙串」中管理。'});
   const render=()=>{
    form.empty();const id=selected;let draft=drafts.get(id);if(!draft){draft=profileFor(p.preferences,id);drafts.set(id,draft);}const profile=draft;
    new Setting(form).setName('翻译服务').addDropdown(d=>{d.addOptions(Object.fromEntries(Object.entries(services).map(([key,s])=>[key,s.name]))).setValue(id).setDisabled(p.serviceBusy).onChange(value=>{selected=value as ServiceId;this.selected=selected;feedback.textContent='';render();});});
-   new Setting(form).setName(id==='deeplx'?'访问密钥（可选）':'API Key').addText(t=>{t.inputEl.type='password';t.setValue(profile.apiKey).onChange(v=>profile.apiKey=v.trim());t.setDisabled(p.serviceBusy);});
+   new Setting(form).setName(id==='deeplx'?'访问密钥（可选）':'API Key').addComponent(el=>new SecretComponent(p.app,el).setValue(profile.secretName||'').onChange(value=>{if(!p.serviceBusy){profile.secretName=value||'';profile.apiKey='';}}));
    if(id==='deepl')new Setting(form).setName('账户类型').addDropdown(d=>d.addOptions({free:'DeepL API Free',pro:'DeepL API Pro'}).setValue(profile.plan).setDisabled(p.serviceBusy).onChange(v=>profile.plan=v as 'free'|'pro'));
    if(id==='custom'||id==='deeplx')new Setting(form).setName('服务地址').setDesc(id==='deeplx'?'你的 DeepLX 实例地址':'兼容 OpenAI 的服务地址，可填写完整接口地址').addText(t=>t.setValue(profile.baseUrl).setDisabled(p.serviceBusy).onChange(v=>profile.baseUrl=v.trim()));
    if(services[id].kind==='ai'){
@@ -255,7 +264,7 @@ class ManagerSettings extends PluginSettingTab {
     p.serviceBusy=true;feedback.textContent='正在保存…';render();let saved=false;
     try{
      await p.saveService(id,{...profile});saved=true;summary.textContent=`当前服务：${services[id].name}`;
-     if(!profile.apiKey&&id!=='custom'&&id!=='deeplx'){feedback.textContent='已清除该服务的密钥，已保存的汉化仍可使用';return;}
+     if(!profile.secretName&&!profile.apiKey&&id!=='custom'&&id!=='deeplx'){feedback.textContent='已解除该服务的密钥关联，已保存的汉化仍可使用';return;}
      feedback.textContent='配置已保存，正在测试真实翻译…';const result=await p.testService(id,{...profile});feedback.textContent=`已保存，测试成功：${result}`;
     }catch(e){feedback.textContent=`${saved?'配置已保存，但测试失败':'保存失败'}：${(e as Error).message}`;}finally{p.serviceBusy=false;render();}
    }));
