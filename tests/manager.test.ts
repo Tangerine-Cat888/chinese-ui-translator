@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
 import {test,expect,vi} from 'vitest';
 import {resolve} from 'node:path';
+import {createRequire} from 'node:module';
 vi.mock('../src/translation-confirm',()=>({confirmLargeTranslation:vi.fn(async()=>true)}));
 import {confirmLargeTranslation} from '../src/translation-confirm';
 vi.mock('obsidian',()=>({
  Plugin:class{app:any;manifest:any;constructor(app:any,manifest:any){this.app=app;this.manifest=manifest;}async loadData(){return this.app.savedData??null;}async saveData(value:unknown){this.app.savedData=structuredClone(value);}addStatusBarItem(){return document.createElement('div');}addSettingTab(){}addCommand(){}registerEvent(){}},
- PluginSettingTab:class{},Setting:class{},Notice:class{},requestUrl:vi.fn()
+ PluginSettingTab:class{},Setting:class{},Notice:class{},requestUrl:vi.fn(),parseYaml:(text:string)=>createRequire(import.meta.url)('js-yaml').load(text)
 }));
 import Manager from '../src/manager';import {requestUrl} from 'obsidian';
 
@@ -178,4 +179,39 @@ test('manager migrates saved keys and resolves the current keychain value for ev
   await expect(p.fetchModels('custom',profile)).rejects.toThrow('不存在');
   expect(requestUrl).toHaveBeenCalledTimes(2);
  }finally{p.onunload();if(old===undefined)delete process.env.APPDATA;else process.env.APPDATA=old;}
+});
+
+
+test('theme translation isolates settings, resumes failure, preserves values and invalidates on theme changes',async()=>{
+ const old=process.env.APPDATA;process.env.APPDATA=resolve('tests/artifacts','theme-manager-'+Date.now());
+ const config={name:'Fixture',id:'fixture-style',settings:[{id:'one',type:'variable-text',title:'Compact layout',description:'Keep text unchanged'},{id:'two',type:'heading',title:'Compact layout'}]};
+ let source='/* @settings\n'+JSON.stringify(config)+'\n*/';
+ const write=vi.fn();const root=document.createElement('div');document.body.append(root);
+ root.innerHTML='<div class="style-settings-heading setting-item" data-level="0" data-id="fixture-style"><div class="setting-item-name">Fixture</div></div><div class="style-settings-container"><div class="setting-item" data-id="one"><div class="setting-item-name">Compact layout</div><div class="setting-item-description">Keep text unchanged</div><input value="PRIVATE"></div><div class="setting-item style-settings-heading" data-id="two"><div class="setting-item-name">Compact layout</div></div></div>';
+ const app:any={customCss:{theme:'Fixture'},vault:{configDir:'.obsidian',adapter:{getBasePath:()=>'/theme-fixture',exists:async()=>false,read:async()=>source,write}},plugins:{plugins:{'obsidian-style-settings':{}},manifests:{'obsidian-style-settings':{id:'obsidian-style-settings',version:'1',name:'Style Settings'}}},setting:{activeTab:{id:'obsidian-style-settings',containerEl:root}},workspace:{containerEl:document.body,on:()=>({}),onLayoutReady:(f:()=>void)=>f(),iterateAllLeaves:()=>{}}};
+ let fail=false;const sent:any[]=[];vi.mocked(requestUrl).mockReset();
+ vi.mocked(requestUrl).mockImplementation((async(args:any)=>{const items=JSON.parse(JSON.parse(args.body).messages[1].content);sent.push(...items);return {status:200,json:{choices:[{message:{content:JSON.stringify(Object.fromEntries(items.map((item:any,i:number)=>[item.id,fail&&i===0?'':item.context.includes('"setting":"two"')?'紧凑分组':'译文 '+item.text])))}}]}};})as any);
+ let p=new Manager(app,{id:'chinese-ui-translator'}as any);
+ try{
+  await p.onload();await p.saveService('custom',{baseUrl:'https://example.invalid',model:'test',apiKey:'',plan:'free'});
+  expect(requestUrl).not.toHaveBeenCalled();expect(await p.translateTheme()).toEqual({total:3,translated:3});
+  expect(root.textContent).toContain('译文 Compact layout');expect(root.textContent).toContain('紧凑分组');expect(root.querySelector('input')!.value).toBe('PRIVATE');expect(write).not.toHaveBeenCalled();
+  const pack=p.catalog.all()[0];expect(pack.pluginId).toMatch(/^theme:/);const count=sent.length;
+  await p.setEnabled(pack.pluginId,false);expect(root.textContent).not.toContain('译文');
+  await p.setEnabled(pack.pluginId,true);expect(root.textContent).toContain('紧凑分组');
+  expect(await p.translateTheme()).toEqual({total:3,translated:0});expect(sent.length).toBe(count);
+  const saved=JSON.stringify(p.catalog.all());config.settings.push({id:'new',type:'variable-text',title:'Fresh setting',description:'Fresh description'});source='/* @settings\n'+JSON.stringify(config)+'\n*/';fail=true;
+  await expect(p.translateTheme()).rejects.toThrow('格式无效');expect(JSON.stringify(p.catalog.all())).toBe(saved);
+  fail=false;expect(await p.translateTheme()).toEqual({total:5,translated:1});
+  p.onunload();p=new Manager(app,{id:'chinese-ui-translator'}as any);await p.onload();await new Promise(r=>setTimeout(r,1));p.refresh();expect(root.textContent).toContain('紧凑分组');
+  const before=sent.length;app.customCss.theme='Other';p.refresh();expect(root.textContent).not.toContain('紧凑分组');expect(sent.length).toBe(before);
+  app.customCss.theme='Fixture';config.settings.push({id:'last',type:'variable-text',title:'Last setting'});source='/* @settings\n'+JSON.stringify(config)+'\n*/';
+  await expect(p.translateTheme(status=>{if(status.startsWith('正在汉化主题'))app.customCss.theme='Other';})).rejects.toThrow('主题已切换');
+  expect(Object.keys(p.catalog.all()[0].strings)).toHaveLength(5);
+  app.customCss.theme='Fixture';const stable=JSON.stringify(p.catalog.all());
+  await expect(p.translateTheme(status=>{if(status.startsWith('正在汉化主题'))p.cancel();})).rejects.toThrow('已取消');
+  expect(JSON.stringify(p.catalog.all())).toBe(stable);
+  await expect(p.translateTheme(status=>{if(status.startsWith('正在汉化主题'))source+='\n';})).rejects.toThrow('发生变化');
+  expect(JSON.stringify(p.catalog.all())).toBe(stable);
+ }finally{p.onunload();root.remove();if(old===undefined)delete process.env.APPDATA;else process.env.APPDATA=old;vi.mocked(requestUrl).mockReset();}
 });

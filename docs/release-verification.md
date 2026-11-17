@@ -107,3 +107,7 @@ macOS/Linux 未实机测试；不支持手机；未使用真实付费供应商�
 GitHub 发布与官方社区审核是两个独立阶段。目前不宣称官方审核通过或已被客户端目录收录。
 
 最终公开页 Current version 为 0.3.2，Add to Obsidian 已启用并指向 obsidian://show-plugin?id=chinese-ui-translator；未点击以免改动用户日常库。
+
+## 0.4.0 — 2026-11-17
+
+主题汉化与全部模块回归通过：93项自动测试、独立宿主基础/ARIA/续翻/Keychain/迁移/损坏保护、主题17项、Minimal486字段、弹出窗口会话释放。两套干净构建一致、审计零漏洞，包仅标准三文件。详细证据见 work/release-0.4.0/验收记录.md。发布/官方最终结果完成后补记。

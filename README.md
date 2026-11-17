@@ -1,8 +1,8 @@
 # Chinese UI Translator
 
-Translate recognizable English plugin interface labels into Simplified Chinese and reuse saved dictionaries offline. Plugin names, input values, notes and plugin source files are preserved.
+Translate recognizable English plugin interface labels and the current theme’s Style Settings labels into Simplified Chinese, then reuse saved dictionaries offline. Plugin names, input values, notes and plugin source files are preserved.
 
-**Author:** Tangerine.Cat · **License:** MIT · **Version:** 0.3.14 · **Requires:** desktop Obsidian 1.15.0 or later.
+**Author:** Tangerine.Cat · **License:** MIT · **Version:** 0.4.0 · **Requires:** desktop Obsidian 1.15.0 or later.
 
 0.3.5 adds role-aware dictionaries, labels observed while visiting plugin settings, and restricted numeric templates. Visit the target settings page first, then explicitly translate or supplement its labels. Browsing alone sends no requests; unprocessed observations remain only in memory. Numeric templates support at most three simple numeric values in known UI calls, and only apply in a confirmed plugin area. Unknown or conflicting contexts remain unchanged.
 
@@ -16,6 +16,16 @@ Progress files are stored beside the dictionaries outside the vault, contain can
 2. Choose DeepSeek, OpenAI, OpenRouter, a compatible endpoint, DeepL or self-hosted DeepLX. Create or select an API key through the native keychain control, enter the endpoint and model, then save and test. AI providers support model discovery; machine translation does not need a model.
 3. Select an English plugin and translate its labels. Saved dictionaries are applied locally when recognizable settings, menus and plugin controls appear.
 4. Restore English without deleting the dictionary, or translate new labels after a plugin update. No new labels means no translation request.
+
+## Current theme (0.4.0)
+
+Enable Style Settings, select a custom theme in Appearance, then use **当前主题汉化** in this plugin’s settings. Translate once, supplement after a theme update, or restore English while retaining the dictionary. The default theme has no theme file to translate.
+
+The translator reads only the current theme’s `theme.css` and extracts English titles, descriptions and option labels from `@settings` blocks. Theme dictionaries are isolated by theme, section, setting and field. Collapsed controls are included before opening them; translated labels are applied when those controls appear. CSS files, option values and typed input are not modified. CSS snippets and plugin-defined style settings are outside this first version. Source names, generated default-value summaries and complex Markdown descriptions may remain untranslated; existing Chinese labels are left as-is. Style Settings’ own interface remains a separate plugin translation.
+
+Only clicking translate/supplement sends theme labels to the selected service. AI requests also include theme/section/setting identifiers, type, title and description for context; machine translation receives the label only. No full CSS or note bodies are uploaded. Theme progress uses the existing separate checkpoint storage. Failed, canceled or changed-source jobs do not replace the active dictionary. Switching themes stops reuse of the prior theme dictionary.
+
+Validated on Windows, Obsidian 1.15.0 and Style Settings 1.0.9 using a local simulated service: fixture controls, theme switching, offline reload, incremental updates, light/dark windows and Minimal (486 extracted fields). This checks integration, not real-provider translation quality or every theme.
 
 ## Privacy, cost and limitations
 
@@ -39,9 +49,9 @@ Screenshots use a separate test vault and simulated content, with no personal no
 
 # 中文使用说明
 
-按需将插件界面汉化为简体中文，保存词典后离线应用，保留插件名称与原始文件。
+按需将插件界面与当前主题的 Style Settings 配置项汉化为简体中文，保存词典后离线应用，保留名称与原始文件。
 
-作者：Tangerine.Cat · MIT · 版本 0.3.14 · 桌面 Obsidian 1.15.0+。
+作者：Tangerine.Cat · MIT · 版本 0.4.0 · 桌面 Obsidian 1.15.0+。
 
 ![插件汉化管理](docs/screenshots/overview-light.png)
 
@@ -52,6 +62,20 @@ Screenshots use a separate test vault and simulated content, with no personal no
 3. 在插件列表找到英文插件，点击“汉化”。完成后显示已保存的词条数量。
 4. 日常打开可识别的设置、菜单和插件控件时，直接应用本地词典，不自动请求翻译。
 5. “恢复英文”保留词典；“启用中文”重新应用。插件更新后可“补翻新增”，无新增词条时不会请求模型。
+
+### 0.4.0：当前主题汉化
+
+1. 启用 **Style Settings**，在 Obsidian 外观设置中选择自定义主题。
+2. 打开本插件设置，在 **当前主题汉化** 中点击“汉化”。无需先展开主题的所有栏目。
+3. 回到 Style Settings，展开栏目即可看到已保存的中文。主题更新后点“补翻新增”；“恢复英文”保留词典。
+
+提取范围为当前主题 `theme.css` 中 `@settings` 的英文标题、说明、选项标签，词典按主题、分组、配置项与字段隔离。恢复、暂停、切换主题与卸载时还原显示；选择值、输入值和 CSS 文件保持原样。默认主题、CSS 片段与其他插件提供的样式配置不在这一版主题汉化范围内。分组来源名称保留，自动生成的默认值说明及复杂 Markdown 说明可能保持英文；已有中文不覆盖。Style Settings 自身的按钮和提示可在插件汉化列表中另行处理。
+
+只有主动汉化或补翻才发送主题词条；AI 请求同时包含主题名、分组和配置项标识、类型、标题与说明作为上下文，机器翻译仅接收文字。不上传整个 CSS 或笔记正文。复用库外词典与独立进度文件；失败、取消、翻译中切换主题或源文件变化不会替换原正式词典。
+
+Windows / Obsidian 1.15.0 / Style Settings 1.0.9 已完成独立测试库验收，并用 Minimal 的 486 条配置字段验证集成。服务使用本地模拟端点，未代表真实供应商翻译质量，也不承诺所有主题覆盖。
+
+![当前主题汉化与原始输入值](docs/screenshots/theme-settings-0.4.0.png)
 
 ### 0.3.12：通用语义识别
 
@@ -106,7 +130,7 @@ Copilot 设置页优先复用词典；对已核实且旧词典缺失的连接词
 ## 隐私和文件访问
 
 - 只有主动汉化、获取模型或测试连接才访问所选服务。AI 翻译发送静态候选、已访问设置页的候选标签及插件 ID/控件角色上下文；DeepL/DeepLX 仅发送词条，不使用角色提示。静态候选可能包含非界面文本，不上传整个插件源码、笔记正文或其他插件配置。
-- 扫描只读取目标插件 main.js，不执行被扫描代码，不改写插件或笔记文件。显示层只修改可识别 DOM 文本和标签属性，支持恢复。
+- 插件扫描只读取目标插件 main.js；主题扫描只读取当前主题 theme.css 的配置块。不执行被扫描代码，不改写插件、主题或笔记文件。显示层只修改可识别 DOM 文本和标签属性，支持恢复。
 - 服务配置与密钥名称保存在本插件 `data.json`，密钥由 Obsidian 钥匙串管理。通过原生控件选择或创建密钥；清空关联后保存不会删除共享密钥。钥匙串密钥缺失时会提示重新关联。安装包不包含任何配置或密钥。
 - 已有明文密钥会先写入钥匙串并回读验证，再从当前配置中移除；迁移失败保留原配置。旧插件目录、旧加密文件和历史备份保留，不会自动清理。钥匙串是 Obsidian 本地存储，本插件不承诺系统级加密或跨设备密钥同步。
 - 词典保存在知识库外 `ObsidianBilingualAssistant/<库路径 SHA256 前20位>/translations.json`，用于跨重启离线复用。Windows 为 `%APPDATA%`；其他桌面系统回退到用户主目录的 `.config`。库路径变化会对应不同词典目录。
@@ -152,7 +176,7 @@ npm run package
 
 `npm run package` 检查版本、三文件白名单、许可证、打包模块与敏感测试标记，并生成固定时间戳 ZIP 和 SHA256。`node scripts/reproduce.mjs` 在两个新目录安装、检查、构建和比较哈希；所有临时材料保留在 work，不能把整个工作目录公开。
 
-本轮 90 项自动测试通过，测试只发现 tests 下的测试文件。src 中历史 legacy-main/dom 参与 lint、类型和回归测试，但不进入发行包。唯一打包运行时依赖是 Acorn，完整许可证嵌入 main.js；见 [第三方说明](THIRD-PARTY-NOTICES.md)。
+本轮 93 项自动测试通过，测试只发现 tests 下的测试文件。src 中历史 legacy-main/dom 参与 lint、类型和回归测试，但不进入发行包。唯一打包运行时依赖是 Acorn，完整许可证嵌入 main.js；见 [第三方说明](THIRD-PARTY-NOTICES.md)。
 
 当前官方 lint 工具的依赖仍声明 ESLint 9；npm 会提示 ESLint 9 已停止维护。已知漏洞审计为 0，不使用强制升级绕过 peer 约束。源码启用完整类型感知 lint；仅保留有同行理由的宿主 this 别名与旧加密设置延迟加载例外。主窗口引用、时钟和设置定义 API 已按官方规则更新。
 

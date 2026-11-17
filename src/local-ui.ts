@@ -37,7 +37,7 @@ export class LocalUi {
  private referenceRole:(el:Element)=>string|undefined=()=>undefined;
  private changed=()=>this.scan();
  collect(names:Set<string>,onEntry?:(entry:UiEntry)=>void){return collectUiLabels(this.root,names,node=>{const p=this.text.get(node);return p&&node.nodeValue===p.applied?p.source:node.nodeValue||'';},(el,key)=>{const p=this.attributes.get(el)?.get(key);return p&&el.getAttribute(key)===p.applied?p.source:el.getAttribute(key);},onEntry,this.extraLabels);}
- constructor(readonly root:HTMLElement,private lookup:(text:string,role:string)=>string|undefined,private clock:Clock=defaultClock,private extraLabels='',private fallback?:(text:string,el:Element)=>string|undefined){
+ constructor(readonly root:HTMLElement,private lookup:(text:string,role:string)=>string|undefined,private clock:Clock=defaultClock,private extraLabels='',private fallback?:(text:string,el:Element)=>string|undefined,private allow:(el:Element)=>boolean=()=>true){
   this.selectors=extraLabels?labels+','+extraLabels:labels;
   const classes=new Set([...semanticClasses,...[...extraLabels.matchAll(/\.([\w-]+)/g)].map(match=>match[1])]);
   const win=root.ownerDocument.defaultView!;
@@ -59,7 +59,7 @@ export class LocalUi {
   for(const [node,p] of this.text)if(!this.root.contains(node)){if(node.nodeValue===p.applied)node.nodeValue=p.source;this.text.delete(node);}
   // Keep inline elements and listeners intact: distribute a full-label translation over existing text nodes.
   this.root.querySelectorAll<HTMLElement>(this.selectors).forEach(el=>{
-   if(!permitted(el,this.selectors)||![...el.querySelectorAll('*')].every(child=>child.matches(inline)&&!child.closest(excluded)))return;
+   if(!this.allow(el)||!permitted(el,this.selectors)||![...el.querySelectorAll('*')].every(child=>child.matches(inline)&&!child.closest(excluded)))return;
    const nodes=textNodes(el);if(nodes.length<2)return;
    const source=nodes.map(node=>{const patch=this.text.get(node);return patch&&node.nodeValue===patch.applied?patch.source:node.nodeValue||'';}).join('');
    const value=this.lookup(source.trim(),this.referenceRole(el)??uiRole(el));if(!value)return;
@@ -68,7 +68,7 @@ export class LocalUi {
   });
   const walker=this.root.ownerDocument.createTreeWalker(this.root,4);let node:Node|null;
   while((node=walker.nextNode())){
-   const el=node.parentElement;if(!el||el.closest(excluded)||!el.closest(this.selectors))continue;
+   const el=node.parentElement;if(!el||!this.allow(el)||el.closest(excluded)||!el.closest(this.selectors))continue;
    // Without an explicit value, HTML uses the label itself as the submitted value.
    if(el.closest('option:not([value])'))continue;
    const text=node as Text,old=this.text.get(text);if(old&&text.nodeValue===old.applied)continue;
@@ -77,7 +77,7 @@ export class LocalUi {
   }
   for(const [el,attrs] of this.attributes)if(!this.root.contains(el)){for(const [key,p] of attrs)if(el.getAttribute(key)===p.applied)el.setAttribute(key,p.source);this.attributes.delete(el);}
   this.root.querySelectorAll<HTMLElement>('[title],[aria-label],[placeholder]').forEach(el=>{
-   if(el.closest(excluded.replace('textarea,input,','')))return;
+   if(!this.allow(el)||el.closest(excluded.replace('textarea,input,','')))return;
    for(const key of ['title','aria-label','placeholder']){
     const source=el.getAttribute(key);if(!source)continue;const attrs=this.attributes.get(el)||new Map<string,Patch>(),old=attrs.get(key);if(old&&source===old.applied)continue;
     attrs.delete(key);const value=this.lookup(source.trim(),uiRole(el,key));if(value&&value!==source.trim()){attrs.set(key,{source,applied:value});this.attributes.set(el,attrs);el.setAttribute(key,value);}

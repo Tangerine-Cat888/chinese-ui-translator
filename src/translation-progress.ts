@@ -4,7 +4,7 @@ import {createHash} from 'node:crypto';
 import {validateTranslation} from './core';
 import {isRecord} from './validation';
 
-export interface ProgressItem {text:string;role:string;value?:string}
+export interface ProgressItem {text:string;role:string;value?:string;key?:string}
 export interface TranslationProgress {sourceHash:string;configHash:string;items:ProgressItem[]}
 const roles=new Set(['','action','option','description','heading','tab','label','placeholder','tooltip']);
 /** Separate atomic checkpoint; never exposed as an active dictionary. */
@@ -20,7 +20,8 @@ export class ProgressStore {
   if(!isRecord(data)||typeof data.sourceHash!=='string'||typeof data.configHash!=='string'||!Array.isArray(data.items))throw new Error('翻译进度文件损坏，原文件已保留');
   const items:ProgressItem[]=data.items.map((item:unknown)=>{
    if(!isRecord(item)||typeof item.text!=='string'||typeof item.role!=='string'||!roles.has(item.role))throw new Error('翻译进度文件损坏，原文件已保留');
-   return {text:item.text,role:item.role,...(item.value===undefined?{}:{value:validateTranslation(item.text,item.value)})};
+   if(item.key!==undefined&&typeof item.key!=='string')throw new Error('翻译进度条目标识损坏');
+   return {text:item.text,role:item.role,...(typeof item.key==='string'?{key:item.key}:{}),...(item.value===undefined?{}:{value:validateTranslation(item.text,item.value)})};
   });
   return {sourceHash:data.sourceHash,configHash:data.configHash,items};
  }

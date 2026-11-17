@@ -1,3 +1,4 @@
+import {extractTheme,themeId,ThemeUi,styleSettingsId,type ThemeSource} from './theme-settings';
 import {savePreferences,resolveProfile} from './secrets';
 import {Plugin,PluginSettingTab,Setting,Notice,SecretComponent,type PluginManifest,type SettingDefinitionItem} from 'obsidian';
 import {createHash} from 'node:crypto';
@@ -18,7 +19,7 @@ import {confirmLargeTranslation} from './translation-confirm';
 
 interface Settings extends Config {uiEnabled:boolean;rememberApiKey:boolean;excludedPlugins:string}
 const defaults:Settings={endpoint:'',model:'',apiKey:'',language:'简体中文',online:false,glossary:{},uiEnabled:true,rememberApiKey:false,excludedPlugins:''};
-interface Internals {setting?:{activeTab?:{id:string;containerEl:HTMLElement};modalEl?:HTMLElement;open?:()=>void;close?:()=>void;openTabById?:(id:string)=>void};plugins:{manifests:Record<string,PluginManifest & {dir?:string}>;enabledPlugins?:Set<string>;plugins?:Record<string,unknown>};}
+interface Internals {customCss?:{theme?:string};setting?:{activeTab?:{id:string;containerEl:HTMLElement};modalEl?:HTMLElement;open?:()=>void;close?:()=>void;openTabById?:(id:string)=>void};plugins:{manifests:Record<string,PluginManifest & {dir?:string}>;enabledPlugins?:Set<string>;plugins?:Record<string,unknown>};}
 export default class TranslationManager extends Plugin {
  settings:Settings={...defaults};store!:SettingsStore;catalog!:Catalog;
  preferences:Preferences=preferenceDefaults();serviceBusy=false;private preferencesReady=false;
@@ -27,11 +28,26 @@ export default class TranslationManager extends Plugin {
  private docs=new Map<Document,MutationObserver>();private sessions=new Map<HTMLElement,{id:string;session:LocalUi}>();private hooks:(()=>void)[]=[];private timer?:()=>void;
  private clock:Clock=defaultClock;
  private status?:HTMLElement;private tab!:ManagerSettings;private catalogReady=false;
+ private themeUi!:ThemeUi;private theme?:ThemeSource;private themeRevision=0;private themeLoading='';
+ currentThemeName(){return this.host.customCss?.theme||'';}
+ async readTheme():Promise<ThemeSource>{
+  const name=this.currentThemeName();if(!name)throw new Error('当前使用默认主题，没有主题配置可汉化');
+  if(name==='.'||name==='..'||/[\\/:]/.test(name))throw new Error('主题目录名称无效');
+  const path=`${this.app.vault.configDir}/themes/${name}/theme.css`;
+  const source=await this.app.vault.adapter.read(path);
+  if(name!==this.currentThemeName())throw new Error('当前主题已切换，请重试');
+  return extractTheme(source,name,path);
+ }
+ private async loadTheme(){
+  const revision=++this.themeRevision;this.themeUi.stop();this.theme=undefined;this.themeLoading=this.currentThemeName();
+  try{const theme=await this.readTheme();if(!this.stopped&&revision===this.themeRevision)this.theme=theme;}catch{/* No supported theme: keep its original UI. The explicit action reports errors. */}
+  if(!this.stopped&&revision===this.themeRevision)this.refresh();
+ }
  private languages=new Map<string,Promise<LanguageResult>>();
  private observedLabels=new Map<string,Set<string>>();
  private observedContexts=new Map<string,Map<string,UiEntry>>();
  private rememberSettings(){
-  const tab=this.host.setting?.activeTab;if(this.closed||!tab?.containerEl?.isConnected||tab.id===this.manifest.id)return;
+  const tab=this.host.setting?.activeTab;if(this.closed||!tab?.containerEl?.isConnected||(tab.id===this.manifest.id||tab.id===styleSettingsId))return;
   const manifest=this.host.plugins.manifests[tab.id];if(!manifest)return;
   const key=tab.id+'@'+manifest.version;const saved=this.observedLabels.get(key)||new Set<string>();
   const session=this.sessions.get(tab.containerEl)?.session;
@@ -61,7 +77,7 @@ export default class TranslationManager extends Plugin {
    throw new Error('旧版汉化插件仍启用，已停止加载以避免重复修改界面');
   }
   this.store=new SettingsStore((this.app.vault.adapter as unknown as {getBasePath():string}).getBasePath());
-  this.catalog=new Catalog(this.store.directory);
+  this.catalog=new Catalog(this.store.directory);this.themeUi=new ThemeUi(this.catalog,this.clock);
   try{this.preferences=await loadPreferences(this,()=>this.store.load(),async()=>{
    if(this.manifest.id!=='chinese-ui-translator')return null;
    const oldPath=`${this.app.vault.configDir}/plugins/bilingual-assistant/data.json`;
@@ -75,6 +91,8 @@ export default class TranslationManager extends Plugin {
   this.addCommand({id:'manage-translations',name:'管理插件汉化',callback:()=>this.status?.click()});
   this.addCommand({id:'toggle-ui',name:'暂停／恢复已保存汉化',callback:()=>{void this.applySettings({...this.settings,uiEnabled:!this.settings.uiEnabled}).catch((e:unknown)=>new Notice(e instanceof Error?e.message:String(e)));}});
   this.watchLifecycle();
+  void this.loadTheme();
+  this.registerEvent(this.app.workspace.on('css-change',()=>{void this.loadTheme();}));
   this.registerEvent(this.app.workspace.on('layout-change',()=>this.schedule()));
   this.registerEvent(this.app.workspace.on('window-open',(_leaf,win)=>{this.watch(win.document);this.schedule();}));
   this.registerEvent(this.app.workspace.on('window-close',(_leaf,win)=>this.release(win.document)));
@@ -97,11 +115,12 @@ export default class TranslationManager extends Plugin {
   }
  }
  private watch(doc:Document){if(this.docs.has(doc)||!doc.defaultView)return;const observer=new doc.defaultView.MutationObserver(records=>{if(records.some(r=>[...r.addedNodes,...r.removedNodes].some(n=>n.nodeType===1)))this.schedule();});observer.observe(doc.body,{childList:true,subtree:true});this.docs.set(doc,observer);}
- private release(doc:Document){for(const [root,record] of this.sessions)if(root.ownerDocument===doc){record.session.stop();this.sessions.delete(root);}this.docs.get(doc)?.disconnect();this.docs.delete(doc);}
+ private release(doc:Document){this.themeUi?.release(doc);for(const [root,record] of this.sessions)if(root.ownerDocument===doc){record.session.stop();this.sessions.delete(root);}this.docs.get(doc)?.disconnect();this.docs.delete(doc);}
  private schedule(){if(this.stopped||this.timer)return;this.timer=this.clock.set(()=>{this.timer=undefined;this.refresh();},100);}
- private stopSessions(){this.sessions.forEach(r=>r.session.stop());this.sessions.clear();}
+ private stopSessions(){this.themeUi?.stop();this.sessions.forEach(r=>r.session.stop());this.sessions.clear();}
  refresh(){
   if(this.stopped)return;
+  if(this.themeLoading!==this.currentThemeName())void this.loadTheme();
   this.rememberSettings();
   const roots=new Map<HTMLElement,string>();const tab=this.host.setting?.activeTab;
   if(!this.closed&&tab?.containerEl?.isConnected){this.watch(tab.containerEl.ownerDocument);if(tab.id!==this.manifest.id&&this.host.plugins.manifests[tab.id])roots.set(tab.containerEl,tab.id);}
@@ -128,7 +147,8 @@ export default class TranslationManager extends Plugin {
   for(const [root,id] of roots)if(!id&&[...roots].some(([parent,owner])=>owner&&parent!==root&&parent.contains(root)))roots.delete(root);
   const names=this.names();
   for(const [root,record] of this.sessions)if(!root.isConnected||!roots.has(root)||roots.get(root)!==record.id){record.session.stop();this.sessions.delete(root);}
-  for(const [root,id] of roots)if(!this.sessions.has(root))this.sessions.set(root,{id,session:new LocalUi(root,(text,role)=>this.catalog.lookup(text,this.settings.language,id||undefined,names,installed,role),this.clock,root===tab?.containerEl?settingsLabels(id):chatLabels(id,root.dataset.type||''),root===tab?.containerEl?(text,el)=>this.catalog.get(id,this.settings.language)?.enabled?settingsText(id,text,el):undefined:text=>this.catalog.get(id,this.settings.language)?.enabled?chatText(id,root.dataset.type||'',text):undefined)});
+  for(const [root,id] of roots)if(!this.sessions.has(root))this.sessions.set(root,{id,session:new LocalUi(root,(text,role)=>this.catalog.lookup(text,this.settings.language,id||undefined,names,installed,role),this.clock,root===tab?.containerEl?settingsLabels(id):chatLabels(id,root.dataset.type||''),root===tab?.containerEl?(text,el)=>this.catalog.get(id,this.settings.language)?.enabled?settingsText(id,text,el):undefined:text=>this.catalog.get(id,this.settings.language)?.enabled?chatText(id,root.dataset.type||'',text):undefined,id===styleSettingsId?el=>!el.closest('.style-settings-container,.style-settings-heading'):undefined)});
+  this.themeUi.refresh([...roots].filter(([,id])=>id===styleSettingsId).map(([root])=>root),this.theme?.name===this.currentThemeName()?this.theme:undefined,this.settings.language);
   this.updateStatus();
  }
  private updateStatus(){if(this.status)this.status.textContent=this.busyId?'插件汉化：处理中':this.settings.uiEnabled?'插件汉化：已开启':'插件汉化：已暂停';}
@@ -141,6 +161,45 @@ export default class TranslationManager extends Plugin {
  private transport():Transport{return serviceTransport(this.preferences.serviceId,resolveProfile(profileFor(this.preferences),this.app.secretStorage));}
  async fetchModels(id:ServiceId,profile:ServiceProfile){if(this.stopped)throw new Error('插件已卸载');profile=resolveProfile(profile,this.app.secretStorage);const controller=new AbortController();this.serviceJobs.add(controller);try{return await listServiceModels(id,profile,controller.signal);}finally{this.serviceJobs.delete(controller);}}
  async testService(id:ServiceId,profile:ServiceProfile){if(this.stopped)throw new Error('插件已卸载');profile=resolveProfile(profile,this.app.secretStorage);const config=engineConfig(id,profile);const engine=new Engine(config,serviceTransport(id,profile),this.clock);const controller=new AbortController();this.serviceJobs.add(controller);try{return await engine.translate({scope:'ui',text:'The connection works.',context:'Connection test'},controller.signal);}finally{engine.dispose();this.serviceJobs.delete(controller);}}
+ async translateTheme(onProgress:(s:string)=>void=()=>{}){
+  if(this.busyId||this.serviceBusy)throw new Error('已有任务正在进行');
+  if(!this.catalogReady||!this.preferencesReady)throw new Error('请先检查配置和词典文件');
+  if(!this.host.plugins.plugins?.[styleSettingsId])throw new Error('请先安装并启用 Style Settings');
+  const name=this.currentThemeName();if(!name)throw new Error('当前使用默认主题，没有主题配置可汉化');
+  const id=themeId(name),abort=new AbortController();this.job=abort;this.busyId=id;this.updateStatus();
+  const report=(s:string)=>{this.progress=s;onProgress(s);};let engine:Engine|undefined;
+  try{
+   report('正在读取当前主题配置…');const theme=await this.readTheme();
+   if(!theme.entries.length)throw new Error('当前主题没有可汉化的英文 Style Settings 配置项');
+   const config={...this.settings,...engineConfig(this.preferences.serviceId,resolveProfile(profileFor(this.preferences),this.app.secretStorage)),online:true};
+   const previous=this.catalog.get(id,config.language);const store=new ProgressStore(this.store.directory,id,config.language);
+   const configHash=createHash('sha256').update(JSON.stringify([this.preferences.serviceId,config.endpoint,config.model,config.language,config.glossary])).digest('hex');
+   const loaded=await store.load();const checkpoint=loaded?.configHash===configHash?loaded:undefined;
+   const strings:Record<string,string>={};
+   const items:ProgressItem[]=theme.entries.map(entry=>{
+    const saved=previous?.strings[entry.key];const resumed=checkpoint?.items.find(item=>item.key===entry.key&&item.text===entry.text);
+    const value=saved??resumed?.value;if(value!==undefined)strings[entry.key]=value;
+    return {text:entry.text,role:entry.role,key:entry.key,...(value===undefined?{}:{value})};
+   });
+   const missing=items.filter(item=>item.value===undefined);
+   if(!await confirmLargeTranslation(this.app,missing.length,abort.signal))throw new Error('已取消翻译，已保存进度可在下次继续');
+   const check=()=>{if(abort.signal.aborted||this.stopped)throw new Error('已取消翻译，已保存进度可在下次继续');if(name!==this.currentThemeName())throw new Error('当前主题已切换，请返回后继续汉化');};check();
+   const progress={sourceHash:theme.hash,configHash,items};if(missing.length)await store.save(progress);
+   engine=new Engine(config,this.transport(),this.clock);
+   const byKey=new Map(theme.entries.map(entry=>[entry.key,entry]));
+   for(let i=0;i<missing.length;i+=12){
+    check();const batch=missing.slice(i,i+12);
+    report(`正在汉化主题：已完成 ${i}/${missing.length} 条`);check();
+    const results=await Promise.allSettled(batch.map(item=>engine!.translate({scope:'ui',text:item.text,context:`Theme Style Settings; UI role: ${item.role}; ${byKey.get(item.key!)!.context}; preserve identifiers and product names`},abort.signal)));
+    batch.forEach((item,j)=>{const result=results[j];if(result.status==='fulfilled'){item.value=result.value;strings[item.key!]=result.value;}});
+    await store.save(progress);const failure=results.find(result=>result.status==='rejected');if(failure?.status==='rejected')throw failure.reason;
+   }
+   check();const current=await this.readTheme();if(current.hash!==theme.hash)throw new Error('主题配置在汉化期间发生变化，请重新汉化');check();
+   await this.catalog.save({pluginId:id,version:theme.hash,sourceHash:theme.hash,language:config.language,enabled:true,updatedAt:new Date().toISOString(),strings});
+   this.themeRevision++;this.theme=theme;this.themeLoading=name;this.stopSessions();this.refresh();
+   report(`已保存 ${items.length} 条；新增翻译 ${missing.length} 条`);return {total:items.length,translated:missing.length};
+  }finally{engine?.dispose();this.busyId='';this.job=undefined;this.updateStatus();if(!this.stopped&&this.host.setting?.activeTab?.id===this.manifest.id&&this.tab.containerEl?.isConnected)this.tab.update();}
+ }
  async translatePlugin(id:string,onProgress:(s:string)=>void=()=>{}){
   if(this.busyId||this.serviceBusy)throw new Error('已有任务正在进行');if(!this.catalogReady)throw new Error('词典尚未正常加载');if(!this.preferencesReady)throw new Error('请先检查配置文件');
   const manifest=this.host.plugins.manifests[id];if(!manifest||id===this.manifest.id)throw new Error('未找到目标插件');
@@ -221,12 +280,28 @@ class ManagerSettings extends PluginSettingTab {
  getSettingDefinitions():SettingDefinitionItem[]{
   return [{name:'插件汉化管理',aliases:['翻译服务','API Key','模型','DeepSeek','OpenAI','DeepL','词典'],render:setting=>{setting.settingEl.empty();setting.settingEl.addClass('ba-custom-settings');setting.settingEl.parentElement?.classList.add('ba-settings-container');this.renderSettings(setting.settingEl);}}];
  }
+ private themeSettings(el:HTMLElement){
+  const p=this.manager;const section=this.section(el,'theme','当前主题汉化','汉化当前主题在 Style Settings 中的标题、说明和选项。',true);
+  const render=()=>{
+   section.body.empty();const name=p.currentThemeName();
+   if(!name){section.body.createEl('p',{text:'当前使用默认主题，没有主题配置可汉化。'});return;}
+   const id=themeId(name),pack=p.catalog.get(id,p.settings.language);
+   const row=new Setting(section.body).setName(name).setDesc(p.busyId===id?p.progress:pack?`${pack.enabled?'中文已启用':'已恢复英文'} · 已保存 ${Object.keys(pack.strings).length} 条`:'未汉化 · 需要启用 Style Settings');
+   row.addButton(b=>b.setButtonText(pack?'补翻新增':'汉化').setDisabled(!!p.busyId||p.serviceBusy).onClick(async()=>{
+    try{const result=p.translateTheme(()=>render());render();const r=await result;new Notice(`${name}：已保存 ${r.total} 条，新增翻译 ${r.translated} 条`);}catch(e){new Notice((e as Error).message);}finally{render();}
+   }));
+   if(pack)row.addButton(b=>b.setButtonText(pack.enabled?'恢复英文':'启用中文').setDisabled(!!p.busyId).onClick(async()=>{try{await p.setEnabled(id,!pack.enabled);render();}catch(e){new Notice((e as Error).message);}}));
+   if(p.busyId===id)new Setting(section.body).setName('主题汉化进行中').setDesc(p.progress).addButton(b=>b.setButtonText('取消').onClick(()=>p.cancel()));
+   section.body.createEl('p',{text:'主题更新后可补翻新增。仅翻译配置文字，不修改主题文件或选项值；浏览设置不会联网。'});
+  };render();
+ }
  private renderSettings(el:HTMLElement){
   const p=this.manager;el.empty();el.dataset.baIgnore='';el.addClass('ba-settings');
   const intro=el.createDiv({cls:'ba-settings-intro'});new Setting(intro).setName('插件汉化管理').setHeading();intro.createEl('p',{text:'配置翻译服务，按需汉化插件界面。'});
   const status=el.createDiv({cls:'ba-settings-status'});
   new Setting(status).setName('显示已保存的中文').setDesc('随时切换中英文，已保存的词典会保留。').addToggle(t=>t.setValue(p.settings.uiEnabled).onChange(async value=>{try{await p.applySettings({...p.settings,uiEnabled:value});}catch(e){new Notice((e as Error).message);this.update();}}));
   new Setting(el).setName('翻译配置').setHeading();this.serviceSettings(el);
+  this.themeSettings(el);
   new Setting(el).setName('插件与词典').setHeading();
   const plugins=this.section(el,'plugins','插件汉化','查找英文插件，生成或管理已保存的中文词典。',true);
   const search=new Setting(plugins.body).setName('查找插件');const summary=plugins.body.createEl('p',{cls:'ba-list-summary',text:'正在本地识别插件界面语言…'});summary.setAttribute('aria-live','polite');const list=plugins.body.createDiv({cls:'ba-plugin-list'});
