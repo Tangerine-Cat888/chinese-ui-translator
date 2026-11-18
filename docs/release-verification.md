@@ -25,9 +25,15 @@ scripts/audit.mjs 只允许该公告、仅 lock 中 dev=true 的全部节点，2
 
 macOS/Linux 实机、真实供应商账号/质量/计费、客户端目录搜索未测；本轮只使用合成内容与本地模拟端点。未修改共享记忆。
 
-## 发布状态
+## 发布与安装结果
 
-同提交 CI、草稿附件与来源证明、公开下载回读、官方扫描、个人库升级与配置词典保护核验。
+源码提交 8da0e5eee2e53ba78869cab4043f76d7d99cd9ed。主分支 CI 44310301636、标签 CI 44310705224 均成功；三文件和 ZIP 与本地双构建及 CI 逐字节一致，草稿附件状态/大小/digest 与公开下载回读通过，main.js/styles.css 来源证明通过。
+
+GitHub 0.4.1 已公开，官方检查 Completed，对应 8da0e5e；main.js 逐字节复现与两项来源证明通过，运行时依赖无漏洞，无 Error 或源码/CSS Warning。保留已披露的库外文件访问 Warning，以及 display 兼容入口与额外 ZIP 两项 Recommendation。官方当前发行已更新为 0.4.1。完整证据 official-completed.txt / official-summary.jpg。公开页简介、详情、5 张截图与安装链接均回读。
+
+实际库 0.4.0 → 0.4.1 已完成，启用正常、配置及 5 份词典与 9 个保护文件哈希不变，Keychain 引用可解析，无明文密钥，无重载捕获异常。主题入口和密钥指引存在，当前 Still 主题提取 108 条；备份保留于 private-install-backup。见 personal-install.json、personal-ui-smoke.json。测试宿主均正常退出，仅原用户宿主仍运行。
+
+官方已返回运行时依赖无漏洞；新增 `display` 自 1.13.0 起弃用的 Recommendation。本版为支持 1.11/1.12 必须保留旧入口，1.13+ 已实际使用 getSettingDefinitions，因此保留该兼容性建议，不删除旧版支持。该项不同于错误或源码 Warning。
 
 ---
 
