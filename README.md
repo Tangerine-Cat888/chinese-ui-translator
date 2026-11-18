@@ -2,7 +2,7 @@
 
 Translate recognizable English plugin interface labels and the current theme’s Style Settings labels into Simplified Chinese, then reuse saved dictionaries offline. Plugin names, input values, notes and plugin source files are preserved.
 
-**Author:** Tangerine.Cat · **License:** MIT · **Version:** 0.4.0 · **Requires:** desktop Obsidian 1.15.0 or later.
+**Author:** Tangerine.Cat · **License:** MIT · **Version:** 0.4.1 · **Requires:** desktop Obsidian 1.11.5 or later.
 
 0.3.5 adds role-aware dictionaries, labels observed while visiting plugin settings, and restricted numeric templates. Visit the target settings page first, then explicitly translate or supplement its labels. Browsing alone sends no requests; unprocessed observations remain only in memory. Numeric templates support at most three simple numeric values in known UI calls, and only apply in a confirmed plugin area. Unknown or conflicting contexts remain unchanged.
 
@@ -33,7 +33,7 @@ The plugin is free and open source, with no membership or paid unlock. Third-par
 
 Service configuration and secret names are stored in this plugin's data.json; API keys are managed by Obsidian SecretStorage. Select or create a key using the native keychain control. Clearing the association and saving does not delete a shared secret. Existing plaintext keys are migrated only after keychain write/read verification; migration failures preserve the original configuration. Keychain storage is local to Obsidian; this feature does not promise OS-level encryption or key synchronization. Dictionaries use a vault-path hash and are stored **outside the vault**, under `%APPDATA%/ObsidianBilingualAssistant` on Windows, or the user's `.config/ObsidianBilingualAssistant` directory on other desktop systems. Node filesystem access is required for this existing local storage and one-time legacy migration. Uninstalling does not delete these files.
 
-Tested on Windows with Obsidian 1.15.0 using a local simulated service, including light/dark themes and narrow windows. Other desktop operating systems, host versions and real provider accounts were not tested in this release. Dynamic strings, native menus, images, iframes and some controls may remain untranslated. Options without an explicit value keep their original text. No note translation or mobile support. Canceling prevents local results from being applied but may not stop server execution or billing.
+Version 0.4.1 was tested on Windows with Obsidian 1.11.5, 1.12.7, 1.13.4, 1.14.4 and 1.15.1 using a local simulated service. Checks covered the settings page, keychain, plugin and theme translation, restoring English and offline reload. Obsidian 1.11.5 added encryption for secrets on disk. Earlier light/dark and narrow-window checks used Obsidian 1.15.0. macOS, Linux and real provider accounts have not been tested. Dynamic strings, native menus, images, iframes and some controls may remain untranslated. Options without an explicit value keep their original text. No note translation or mobile support. Canceling prevents local results from being applied but may not stop server execution or billing.
 
 ## Installation and upgrade
 
@@ -51,7 +51,7 @@ Screenshots use a separate test vault and simulated content, with no personal no
 
 按需将插件界面与当前主题的 Style Settings 配置项汉化为简体中文，保存词典后离线应用，保留名称与原始文件。
 
-作者：Tangerine.Cat · MIT · 版本 0.4.0 · 桌面 Obsidian 1.15.0+。
+作者：Tangerine.Cat · MIT · 版本 0.4.1 · 桌面 Obsidian 1.11.5+。
 
 ![插件汉化管理](docs/screenshots/overview-light.png)
 
@@ -143,7 +143,7 @@ Copilot 设置页优先复用词典；对已核实且旧词典缺失的连接词
 
 扫描上限为 20,000,000 个 JavaScript 字符；超过 3000 条的候选词条也可分批翻译，每批最多 12 条。大型插件耗时与服务用量会随词条数量增加，可随时取消；失败或取消不覆盖原词典。不同插件与主题的 DOM 结构存在差异，不承诺所有界面都能翻译。未知语言检测结果不等于插件不可用。
 
-本轮真实验收为 Windows / Obsidian 1.15.0，包括独立设置窗口、明暗主题、1100×900 和 700×844 窗口。macOS、Linux、其他主题和其他宿主版本未实机验证；不支持移动端。历史性能采样卡顿未证明完整根因，不宣称覆盖所有性能采样组合。
+0.4.1 使用 Windows 独立测试库和本地模拟服务，在 Obsidian 1.11.5、1.12.7、1.13.4、1.14.4、1.15.1 验证了设置页、钥匙串、插件与主题汉化、恢复英文和离线重载。最低支持 1.11.5，因为该版加入了钥匙串落盘加密。此前的独立设置窗口、明暗主题与窄窗口验收使用 1.15.0。macOS、Linux 和真实供应商账号尚未实测。插件仅支持桌面端。历史性能采样卡顿未证明完整根因，不宣称覆盖所有性能采样组合。
 
 ![窄窗口服务配置](docs/screenshots/narrow-dark.png)
 

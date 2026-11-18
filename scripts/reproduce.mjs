@@ -12,7 +12,7 @@ for(const name of ['clean-a','clean-b']){
  const cwd=join(base,name);await mkdir(cwd,{recursive:true});
  for(const file of files){await mkdir(resolve(cwd,file,'..'),{recursive:true});await copyFile(file,join(cwd,file));}
  const run={name,commands:[]};report.runs.push(run);
- for(const args of [['ci','--ignore-scripts','--cache',join(base,'npm-cache')],['run','check'],['test'],['run','lint'],['run','build'],['run','package'],['audit'],['ls','--all']]){
+ for(const args of [['ci','--ignore-scripts','--cache',join(base,'npm-cache')],['run','check'],['test'],['run','lint'],['run','build'],['run','package'],['run','audit:release'],['ls','--all']]){
   const npm=process.env.npm_execpath||join(dirname(process.execPath),'node_modules/npm/bin/npm-cli.js');
   const result=spawnSync(process.execPath,[npm,...args],{cwd,encoding:'utf8',timeout:180000});
   const log=args.join('-').replace(/[^\w-]/g,'_').slice(0,80)+'.log';

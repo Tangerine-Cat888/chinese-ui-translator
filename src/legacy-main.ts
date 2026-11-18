@@ -1,4 +1,4 @@
-import { Plugin, PluginSettingTab, Setting, Notice, MarkdownView, MarkdownRenderChild, requestUrl } from 'obsidian';
+import { Plugin, PluginSettingTab, Setting, Notice, MarkdownView, MarkdownRenderChild, requestUrl, requireApiVersion } from 'obsidian';
 import type {SettingDefinitionItem} from 'obsidian';
 import { Engine, abortError, type Config, type Transport } from './core';
 import { DomSession } from './dom';
@@ -193,6 +193,7 @@ export default class BilingualAssistant extends Plugin {
 // Archived entry retained for regression tests, excluded from release bundle.
 class AssistantSettings extends PluginSettingTab {
   constructor(private assistant: BilingualAssistant) { super(assistant.app, assistant); }
+  display() { this.renderSettings(this.containerEl); }
   getSettingDefinitions(): SettingDefinitionItem[] {
     return [{name:'双语助手',aliases:['翻译','API Key','模型'],render:setting=>{setting.settingEl.empty();this.renderSettings(setting.settingEl);}}];
   }
@@ -208,7 +209,12 @@ class AssistantSettings extends PluginSettingTab {
     new Setting(el).setName('API Key').addText(t => { t.inputEl.type = 'password'; t.setValue(draft.apiKey).onChange(v => { draft.apiKey = v.trim(); }); });
     new Setting(el).setName('记住 API Key').setDesc('开启后点击“应用”，重启自动读取。使用系统加密，仅供此电脑当前用户使用；关闭后应用会清除已保存密钥。').addToggle(t => t.setValue(draft.rememberApiKey).onChange(v => { draft.rememberApiKey = v; }));
     new Setting(el).setName('清除 API Key').setDesc('立即清除已保存和本次会话的密钥，并关闭在线翻译。').addButton(b => b.setButtonText('清除密钥').onClick(async () => {
-      try { await this.assistant.applySettings({ ...this.assistant.settings, apiKey: '', rememberApiKey: false, online: false }); this.update(); new Notice('已清除密钥并关闭在线翻译'); }
+      try {
+        await this.assistant.applySettings({ ...this.assistant.settings, apiKey: '', rememberApiKey: false, online: false });
+        if (requireApiVersion('1.13.0')) this.update();
+        else this.renderSettings(el);
+        new Notice('已清除密钥并关闭在线翻译');
+      }
       catch { new Notice('清除失败，请重试'); }
     }));
     new Setting(el).setName('目标语言').addDropdown(d => d.addOptions({ '简体中文': '简体中文', '繁體中文': '繁體中文', '日本語': '日本語' }).setValue(draft.language).onChange(v => { draft.language = v; }));

@@ -1,6 +1,6 @@
 import {extractTheme,themeId,ThemeUi,styleSettingsId,type ThemeSource} from './theme-settings';
 import {savePreferences,resolveProfile} from './secrets';
-import {Plugin,PluginSettingTab,Setting,Notice,SecretComponent,type PluginManifest,type SettingDefinitionItem} from 'obsidian';
+import {Plugin,PluginSettingTab,Setting,Notice,SecretComponent,requireApiVersion,type PluginManifest,type SettingDefinitionItem} from 'obsidian';
 import {createHash} from 'node:crypto';
 import {Engine,type Config,type Transport} from './core';
 import {SettingsStore} from './storage';
@@ -198,7 +198,7 @@ export default class TranslationManager extends Plugin {
    await this.catalog.save({pluginId:id,version:theme.hash,sourceHash:theme.hash,language:config.language,enabled:true,updatedAt:new Date().toISOString(),strings});
    this.themeRevision++;this.theme=theme;this.themeLoading=name;this.stopSessions();this.refresh();
    report(`已保存 ${items.length} 条；新增翻译 ${missing.length} 条`);return {total:items.length,translated:missing.length};
-  }finally{engine?.dispose();this.busyId='';this.job=undefined;this.updateStatus();if(!this.stopped&&this.host.setting?.activeTab?.id===this.manifest.id&&this.tab.containerEl?.isConnected)this.tab.update();}
+  }finally{engine?.dispose();this.busyId='';this.job=undefined;this.updateStatus();if(!this.stopped&&this.host.setting?.activeTab?.id===this.manifest.id&&this.tab.containerEl?.isConnected)this.tab.refreshSettings();}
  }
  async translatePlugin(id:string,onProgress:(s:string)=>void=()=>{}){
   if(this.busyId||this.serviceBusy)throw new Error('已有任务正在进行');if(!this.catalogReady)throw new Error('词典尚未正常加载');if(!this.preferencesReady)throw new Error('请先检查配置文件');
@@ -255,7 +255,7 @@ export default class TranslationManager extends Plugin {
    if(abort.signal.aborted||this.stopped)throw new Error('已取消翻译，已保存进度可在下次继续');
    await this.catalog.save({pluginId:id,version:manifest.version,sourceHash:hash,language,enabled:true,updatedAt:new Date().toISOString(),strings,contexts});
    this.stopSessions();this.refresh();const total=Object.keys(strings).length;report(`已保存 ${total} 条；新增翻译 ${missing.length} 条`);return {total,translated:missing.length};
-  }finally{engine?.dispose();this.busyId='';this.job=undefined;this.updateStatus();if(!this.stopped&&this.host.setting?.activeTab?.id===this.manifest.id&&this.tab.containerEl?.isConnected)this.tab.update();}
+  }finally{engine?.dispose();this.busyId='';this.job=undefined;this.updateStatus();if(!this.stopped&&this.host.setting?.activeTab?.id===this.manifest.id&&this.tab.containerEl?.isConnected)this.tab.refreshSettings();}
  }
  onunload(){this.stopped=true;this.job?.abort();this.serviceJobs.forEach(c=>c.abort());this.serviceJobs.clear();this.timer?.();this.docs.forEach(o=>o.disconnect());this.docs.clear();this.stopSessions();this.hooks.forEach(f=>f());}
 }
@@ -280,6 +280,13 @@ class ManagerSettings extends PluginSettingTab {
  getSettingDefinitions():SettingDefinitionItem[]{
   return [{name:'插件汉化管理',aliases:['翻译服务','API Key','模型','DeepSeek','OpenAI','DeepL','词典'],render:setting=>{setting.settingEl.empty();setting.settingEl.addClass('ba-custom-settings');setting.settingEl.parentElement?.classList.add('ba-settings-container');this.renderSettings(setting.settingEl);}}];
  }
+ display(){
+  this.renderSettings(this.containerEl);
+ }
+ refreshSettings(){
+  if(requireApiVersion('1.13.0'))this.update();
+  else this.display();
+ }
  private themeSettings(el:HTMLElement){
   const p=this.manager;const section=this.section(el,'theme','当前主题汉化','汉化当前主题在 Style Settings 中的标题、说明和选项。',true);
   const render=()=>{
@@ -299,7 +306,7 @@ class ManagerSettings extends PluginSettingTab {
   const p=this.manager;el.empty();el.dataset.baIgnore='';el.addClass('ba-settings');
   const intro=el.createDiv({cls:'ba-settings-intro'});new Setting(intro).setName('插件汉化管理').setHeading();intro.createEl('p',{text:'配置翻译服务，按需汉化插件界面。'});
   const status=el.createDiv({cls:'ba-settings-status'});
-  new Setting(status).setName('显示已保存的中文').setDesc('随时切换中英文，已保存的词典会保留。').addToggle(t=>t.setValue(p.settings.uiEnabled).onChange(async value=>{try{await p.applySettings({...p.settings,uiEnabled:value});}catch(e){new Notice((e as Error).message);this.update();}}));
+  new Setting(status).setName('显示已保存的中文').setDesc('随时切换中英文，已保存的词典会保留。').addToggle(t=>t.setValue(p.settings.uiEnabled).onChange(async value=>{try{await p.applySettings({...p.settings,uiEnabled:value});}catch(e){new Notice((e as Error).message);this.refreshSettings();}}));
   new Setting(el).setName('翻译配置').setHeading();this.serviceSettings(el);
   this.themeSettings(el);
   new Setting(el).setName('插件与词典').setHeading();

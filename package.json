@@ -1,9 +1,10 @@
 {
   "name": "obsidian-chinese-ui-translator",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "private": true,
   "type": "module",
   "scripts": {
+    "audit:release": "node scripts/audit.mjs",
     "check": "tsc --noEmit",
     "test": "vitest run",
     "build": "node build.mjs",
