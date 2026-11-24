@@ -1,6 +1,6 @@
 {
   "name": "obsidian-chinese-ui-translator",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -25,6 +25,7 @@
     "vitest": "^5.1.0"
   },
   "dependencies": {
+    "@noble/hashes": "2.4.0",
     "acorn": "^8.19.0"
   },
   "overrides": {

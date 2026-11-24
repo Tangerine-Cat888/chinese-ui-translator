@@ -1,4 +1,4 @@
-import {randomUUID} from 'node:crypto';
+import {bytesToHex,randomBytes} from '@noble/hashes/utils.js';
 import type {ServiceProfile} from './services';
 import type {DataHost,Preferences} from './preferences';
 
@@ -25,7 +25,7 @@ export function securePreferences(preferences:Preferences,keychain?:Keychain):Pr
     let name=safe.secretName;
     if(!name||store.getSecret(name)!==safe.apiKey){
      // Obsidian limits secret IDs to 64 lowercase letters, digits and dashes.
-     name=`chinese-ui-${id}-${randomUUID().replaceAll('-','')}`;
+     name=`chinese-ui-${id}-${bytesToHex(randomBytes(16))}`;
      store.setSecret(name,safe.apiKey);
     }
     if(store.getSecret(name)!==safe.apiKey)throw new Error('verification failed');

@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import {test,expect,vi} from 'vitest';
 import {resolve} from 'node:path';
+import {desktopTranslationFiles} from '../src/storage';
 import {Catalog,type Pack} from '../src/catalog';
 import {extractLabels} from '../src/scanner';
 import {numericValues,renderNumeric,templateSource} from '../src/numeric-template';
@@ -23,15 +24,15 @@ test('numeric patterns are anchored, escaped and bounded; placeholders must surv
  expect(templateSource('Found 3 results',['Found ⟦BA0⟧ results'])).toBe('Found ⟦BA0⟧ results');
 });
 test('context dictionaries survive reload and resolve same-word roles without guessing an unknown role',async()=>{
- const directory=resolve('tests/artifacts','contexts-'+Date.now());const c=new Catalog(directory);
+ const directory=resolve('tests/artifacts','contexts-'+Date.now());const c=new Catalog(desktopTranslationFiles(directory));
  await c.save(pack('one',{Open:'打开'},{action:{Open:'打开'},description:{Open:'开启状态'}}));
- await c.save(pack('two',{Open:'展开'}));const fresh=new Catalog(directory);await fresh.load();
+ await c.save(pack('two',{Open:'展开'}));const fresh=new Catalog(desktopTranslationFiles(directory));await fresh.load();
  const lookup=(id:string|undefined,role?:string)=>fresh.lookup('Open','简体中文',id,new Set(),new Set(['one','two']),role);
  expect(lookup('one','action')).toBe('打开');expect(lookup('one','description')).toBe('开启状态');
  expect(lookup('one','heading')).toBeUndefined();expect(lookup(undefined,'action')).toBeUndefined();expect(lookup('two','action')).toBe('展开');
 });
 test('numeric templates stay local to their owner, prefer exact entries, and reject conflicting matches',async()=>{
- const c=new Catalog(resolve('tests/artifacts','numeric-'+Date.now()));
+ const c=new Catalog(desktopTranslationFiles(resolve('tests/artifacts','numeric-'+Date.now())));
  await c.save(pack('one',{'Found ⟦BA0⟧ results':'找到 ⟦BA0⟧ 个结果','Found 1 results':'找到一个结果'}));
  const lookup=(text:string,id:string|undefined='one')=>c.lookup(text,'简体中文',id,new Set(),new Set(['one']),'description');
  expect(lookup('Found 12 results')).toBe('找到 12 个结果');expect(lookup('Found 1 results')).toBe('找到一个结果');

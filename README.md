@@ -2,13 +2,13 @@
 
 Translate recognizable English plugin interface labels and the current theme’s Style Settings labels into Simplified Chinese, then reuse saved dictionaries offline. Plugin names, input values, notes and plugin source files are preserved.
 
-**Author:** Tangerine.Cat · **License:** MIT · **Version:** 0.4.1 · **Requires:** desktop Obsidian 1.11.5 or later.
+**Author:** Tangerine.Cat · **License:** MIT · **Version:** 0.5.0 · **Requires:** Obsidian 1.11.5 or later · Mobile support: desktop emulation verified; Android and iPhone devices untested.
 
 0.3.5 adds role-aware dictionaries, labels observed while visiting plugin settings, and restricted numeric templates. Visit the target settings page first, then explicitly translate or supplement its labels. Browsing alone sends no requests; unprocessed observations remain only in memory. Numeric templates support at most three simple numeric values in known UI calls, and only apply in a confirmed plugin area. Unknown or conflicting contexts remain unchanged.
 
 Version 0.3.13 includes large-plugin translation with confirmation above 3000 remaining entries, atomic progress checkpoints for resuming interrupted jobs, scoped Copilot settings/chat controls, and generic ARIA-linked labels. Disabling a dictionary also disables local fallback translations. Editable content remains excluded, including empty and plaintext-only contenteditable regions.
 
-Progress files are stored beside the dictionaries outside the vault, contain candidate labels and validated translations, and do not store API keys. Until a task completes, the active dictionary remains unchanged. A changed provider, endpoint or model invalidates old progress; after source changes, only matching candidates are reused. Browsing alone does not send requests. Explicit supplementation may send observed descriptions with dynamic context, even when those descriptions can already be displayed through a local fallback.
+Progress files sit beside the dictionaries and contain candidate labels and validated translations. API keys are managed separately by Obsidian. Until a task completes, the active dictionary remains unchanged. A changed provider, endpoint or model invalidates old progress. After source changes, only matching candidates are reused. Browsing alone does not send requests. Explicit supplementation may send observed descriptions with dynamic context, even when those descriptions can already be displayed through a local fallback.
 
 ## Getting started
 
@@ -16,6 +16,8 @@ Progress files are stored beside the dictionaries outside the vault, contain can
 2. Choose DeepSeek, OpenAI, OpenRouter, a compatible endpoint, DeepL or self-hosted DeepLX. Create or select an API key through the native keychain control, enter the endpoint and model, then save and test. AI providers support model discovery; machine translation does not need a model.
 3. Select an English plugin and translate its labels. Saved dictionaries are applied locally when recognizable settings, menus and plugin controls appear.
 4. Restore English without deleting the dictionary, or translate new labels after a plugin update. No new labels means no translation request.
+
+On Android and iPhone, open the plugin settings or run **管理插件汉化** from the command palette. Saved translations and resume files are stored in the vault configuration directory under `plugins/chinese-ui-translator/`. Set up the translation service key in Obsidian's Keychain on the device. Existing desktop dictionaries stay in their original location and are not copied to the phone automatically.
 
 ## Current theme (0.4.0)
 
@@ -31,9 +33,9 @@ Validated on Windows, Obsidian 1.15.0 and Style Settings 1.0.9 using a local sim
 
 The plugin is free and open source, with no membership or paid unlock. Third-party services may require accounts, API keys and payment. Only explicit translation, model listing and connection tests send requests. Translation sends extracted static candidate labels and recognized labels observed in visited plugin settings to the selected service, with plugin ID and control-role context for AI providers; candidates may include non-interface static text. It does not upload complete source files, note bodies or input values. Observed descriptions and placeholders may contain dynamically inserted context; the plugin cannot identify and remove all sensitive content. AI services receive role context; DeepL/DeepLX receive the label text only.
 
-Service configuration and secret names are stored in this plugin's data.json; API keys are managed by Obsidian SecretStorage. Select or create a key using the native keychain control. Clearing the association and saving does not delete a shared secret. Existing plaintext keys are migrated only after keychain write/read verification; migration failures preserve the original configuration. Keychain storage is local to Obsidian; this feature does not promise OS-level encryption or key synchronization. Dictionaries use a vault-path hash and are stored **outside the vault**, under `%APPDATA%/ObsidianBilingualAssistant` on Windows, or the user's `.config/ObsidianBilingualAssistant` directory on other desktop systems. Node filesystem access is required for this existing local storage and one-time legacy migration. Uninstalling does not delete these files.
+Service configuration and secret names are stored in this plugin's data.json. API keys are managed by Obsidian SecretStorage. Select or create a key using the native keychain control. Clearing the association and saving does not delete a shared secret. Existing plaintext keys are migrated after keychain write/read verification. Migration failures preserve the original configuration. Desktop dictionaries use a vault-path hash and are stored **outside the vault**, under `%APPDATA%/ObsidianBilingualAssistant` on Windows or the user's `.config/ObsidianBilingualAssistant` directory on other desktop systems. Desktop filesystem access preserves this storage and enables one-time migration of old encrypted settings. On mobile, whether files in the vault configuration directory sync depends on the sync tool and its settings.
 
-Version 0.4.1 was tested on Windows with Obsidian 1.11.5, 1.12.7, 1.13.4, 1.14.4 and 1.15.1 using a local simulated service. Checks covered the settings page, keychain, plugin and theme translation, restoring English and offline reload. Obsidian 1.11.5 added encryption for secrets on disk. Full regression, light/dark and narrow-window checks for 0.4.1 used Obsidian 1.15.0. macOS, Linux and real provider accounts have not been tested. Dynamic strings, native menus, images, iframes and some controls may remain untranslated. Options without an explicit value keep their original text. No note translation or mobile support. Canceling prevents local results from being applied but may not stop server execution or billing.
+Version 0.4.1 was tested on Windows with Obsidian 1.11.5, 1.12.7, 1.13.4, 1.14.4 and 1.15.1 using a local simulated service. Checks covered the settings page, keychain, plugin and theme translation, restoring English and offline reload. Version 0.5.0 passed the same Windows version matrix and mobile emulation on 1.15.1, including Keychain, cancellation/resume, corrupted-file protection and offline cold restart. Android/iPhone devices and macOS/Linux remain untested; simulated providers do not establish real-provider translation quality. Dynamic strings, native menus, images, iframes and some controls may remain untranslated. Options without an explicit value keep their original text. Canceling prevents local results from being applied but may not stop server execution or billing.
 
 ## Installation and upgrade
 
@@ -51,7 +53,7 @@ Screenshots use a separate test vault and simulated content, with no personal no
 
 按需将插件界面与当前主题的 Style Settings 配置项汉化为简体中文，保存词典后离线应用，保留名称与原始文件。
 
-作者：Tangerine.Cat · MIT · 版本 0.4.1 · 桌面 Obsidian 1.11.5+。
+作者：Tangerine.Cat · MIT · 版本 0.5.0 · Obsidian 1.11.5+ · 手机适配已通过桌面移动模拟；Android 和 iPhone 实机未测。
 
 ![插件汉化管理](docs/screenshots/overview-light.png)
 
@@ -63,6 +65,8 @@ Screenshots use a separate test vault and simulated content, with no personal no
 4. 日常打开可识别的设置、菜单和插件控件时，直接应用本地词典，不自动请求翻译。
 5. “恢复英文”保留词典；“启用中文”重新应用。插件更新后可“补翻新增”，无新增词条时不会请求模型。
 
+在 Android 和 iPhone 上，可以从设置打开本插件，或在命令面板运行“管理插件汉化”。第一次在线翻译前，请在手机的 Obsidian 钥匙串创建或选择密钥。手机生成的词典与续译进度保存在当前库的插件配置目录。已有桌面词典继续从原路径读取，手机不会自动接收。
+
 ### 0.4.0：当前主题汉化
 
 1. 启用 **Style Settings**，在 Obsidian 外观设置中选择自定义主题。
@@ -71,7 +75,7 @@ Screenshots use a separate test vault and simulated content, with no personal no
 
 提取范围为当前主题 `theme.css` 中 `@settings` 的英文标题、说明、选项标签，词典按主题、分组、配置项与字段隔离。恢复、暂停、切换主题与卸载时还原显示；选择值、输入值和 CSS 文件保持原样。默认主题、CSS 片段与其他插件提供的样式配置不在这一版主题汉化范围内。分组来源名称保留，自动生成的默认值说明及复杂 Markdown 说明可能保持英文；已有中文不覆盖。Style Settings 自身的按钮和提示可在插件汉化列表中另行处理。
 
-只有主动汉化或补翻才发送主题词条；AI 请求同时包含主题名、分组和配置项标识、类型、标题与说明作为上下文，机器翻译仅接收文字。不上传整个 CSS 或笔记正文。复用库外词典与独立进度文件；失败、取消、翻译中切换主题或源文件变化不会替换原正式词典。
+只有主动汉化或补翻才发送主题词条；AI 请求同时包含主题名、分组和配置项标识、类型、标题与说明作为上下文，机器翻译仅接收文字。主题词典和续译进度使用同一平台的插件存储。失败、取消、翻译中切换主题或源文件变化时保留原正式词典。
 
 Windows / Obsidian 1.15.0 / Style Settings 1.0.9 已完成独立测试库验收，并用 Minimal 的 486 条配置字段验证集成。服务使用本地模拟端点，未代表真实供应商翻译质量，也不承诺所有主题覆盖。
 
@@ -97,7 +101,7 @@ Copilot 设置页优先复用词典；对已核实且旧词典缺失的连接词
 
 ### 0.3.8：大型翻译确认与断点续翻
 
-实际剩余待翻译词条超过 3000 条时，开始请求服务前会提示确认。选择“取消翻译”不会发起翻译请求。每批完成后，将已校验译文与待翻译词条暂存在库外词典目录；中途取消、服务报错或重启后，再点“汉化”或“补翻新增”会接着处理剩余词条。进度显示已完成数量。整轮成功前继续使用原正式词典。
+实际剩余待翻译词条超过 3000 条时，开始请求服务前会提示确认。选择“取消翻译”不会发起翻译请求。每批完成后，将已校验译文与待翻译词条保存到独立进度文件。中途取消、服务报错或重启后，再点“汉化”或“补翻新增”会接着处理剩余词条。进度显示已完成数量。整轮成功前继续使用原正式词典。
 
 插件源码更新后仅复用仍匹配的候选词条；翻译服务、地址、模型、目标语言或术语配置改变后不复用旧进度。当前批次中尚未收到或未通过校验的译文仍需重试；已发出的服务请求可能计费。进度文件不包含 API Key。
 
@@ -133,8 +137,8 @@ Copilot 设置页优先复用词典；对已核实且旧词典缺失的连接词
 - 插件扫描只读取目标插件 main.js；主题扫描只读取当前主题 theme.css 的配置块。不执行被扫描代码，不改写插件、主题或笔记文件。显示层只修改可识别 DOM 文本和标签属性，支持恢复。
 - 服务配置与密钥名称保存在本插件 `data.json`，密钥由 Obsidian 钥匙串管理。通过原生控件选择或创建密钥；清空关联后保存不会删除共享密钥。钥匙串密钥缺失时会提示重新关联。安装包不包含任何配置或密钥。
 - 已有明文密钥会先写入钥匙串并回读验证，再从当前配置中移除；迁移失败保留原配置。旧插件目录、旧加密文件和历史备份保留，不会自动清理。钥匙串是 Obsidian 本地存储，本插件不承诺系统级加密或跨设备密钥同步。
-- 词典保存在知识库外 `ObsidianBilingualAssistant/<库路径 SHA256 前20位>/translations.json`，用于跨重启离线复用。Windows 为 `%APPDATA%`；其他桌面系统回退到用户主目录的 `.config`。库路径变化会对应不同词典目录。
-- 首次升级可以读取同目录的旧加密 `settings.json` 并迁移。标准 data.json 存在后不再读回旧密钥；旧文件保留，避免清空后自动复活。
+- 桌面词典保存在知识库外 `ObsidianBilingualAssistant/<库路径 SHA256 前20位>/translations.json`。Windows 使用 `%APPDATA%`，其他桌面系统使用用户主目录的 `.config`。手机词典和进度保存在当前库配置目录的 `plugins/chinese-ui-translator/`。如果同步工具同步该目录，词典和进度也可能随之同步。
+- 桌面首次升级可以读取库外的旧加密 `settings.json`。标准 data.json 存在后优先使用其中的配置，保留旧文件。
 - 失败或取消不覆盖已保存词典。取消使本地结果失效，已发出的服务器请求仍可能执行和计费。卸载不自动删除配置及词典。
 
 ## 支持范围
@@ -143,7 +147,7 @@ Copilot 设置页优先复用词典；对已核实且旧词典缺失的连接词
 
 扫描上限为 20,000,000 个 JavaScript 字符；超过 3000 条的候选词条也可分批翻译，每批最多 12 条。大型插件耗时与服务用量会随词条数量增加，可随时取消；失败或取消不覆盖原词典。不同插件与主题的 DOM 结构存在差异，不承诺所有界面都能翻译。未知语言检测结果不等于插件不可用。
 
-0.4.1 使用 Windows 独立测试库和本地模拟服务，在 Obsidian 1.11.5、1.12.7、1.13.4、1.14.4、1.15.1 验证了设置页、钥匙串、插件与主题汉化、恢复英文和离线重载。最低支持 1.11.5，因为该版加入了钥匙串落盘加密。此前的独立设置窗口、明暗主题与窄窗口验收使用 1.15.0。macOS、Linux 和真实供应商账号尚未实测。插件仅支持桌面端。历史性能采样卡顿未证明完整根因，不宣称覆盖所有性能采样组合。
+0.4.1 使用 Windows 独立测试库和本地模拟服务，在 Obsidian 1.11.5、1.12.7、1.13.4、1.14.4、1.15.1 验证了设置页、钥匙串、插件与主题汉化、恢复英文和离线重载。0.5.0 的 Android 和 iPhone 真机验证待完成。
 
 ![窄窗口服务配置](docs/screenshots/narrow-dark.png)
 
@@ -155,9 +159,9 @@ Copilot 设置页优先复用词典；对已核实且旧词典缺失的连接词
 
 发行文件见 [GitHub Releases](https://github.com/Tangerine-Cat888/chinese-ui-translator/releases)。官方社区目录收录状态以审核后台为准；目录上线前可手动安装。
 
-将发行包中的 `chinese-ui-translator` 文件夹放到自己的库配置目录下的 `plugins/` 内，然后在第三方插件中启用。标准配置目录为 `.obsidian`；自定义配置目录按实际位置安装。目录内只需 `main.js`、`manifest.json`、`styles.css`。更新时替换这三个文件，保留自己的 data.json。
+将发行包中的 `chinese-ui-translator` 文件夹放到库配置目录的 `plugins/` 内，然后在第三方插件中启用。标准配置目录为 `.obsidian`。更新时替换 `main.js`、`manifest.json`、`styles.css` 三个文件，保留已有的 `data.json`、词典和进度文件。
 
-内部 ID 和安装目录现为 `chinese-ui-translator`。从本地旧版升级时，先停用 `bilingual-assistant`，再启用新版；若已经提示重复加载，先关闭新版开关再重新启用。新版首次加载会读取旧插件目录的 data.json，并将已验证的服务配置保存到新目录，旧文件保留。新目录已有配置后不重复迁移，清除密钥后不会从旧配置复活。词典继续复用相同的库外目录。无需删除旧目录，也不要同时启用两个版本。
+内部 ID 和安装目录为 `chinese-ui-translator`。从本地旧版升级时，先停用 `bilingual-assistant`，再启用新版。首次加载会读取旧插件目录的 data.json，并将已验证的服务配置保存到新目录，保留旧文件。新目录已有配置后按新配置加载。桌面继续使用已有的库外词典。
 
 没有额外字体、图库或运行时下载步骤。
 
@@ -185,3 +189,9 @@ npm run package
 [MIT](LICENSE)，Copyright (c) 2026 Tangerine.Cat。第三方组件保留原许可证。
 
 [更新记录](CHANGELOG.md) · [发布清单](RELEASE-CHECKLIST.md) · [市场资料草稿](docs/marketplace.md)
+
+## Mobile preview / 移动布局预览
+
+Desktop mobile emulation at 390 px, using a separate test vault and local simulated endpoint; this is not a physical phone screenshot. 桌面移动模拟截图，不代表手机实机验收。
+
+![Mobile emulation, version 0.5.0](docs/screenshots/mobile-emulation-0.5.0.png)

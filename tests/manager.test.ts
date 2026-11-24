@@ -5,10 +5,61 @@ import {createRequire} from 'node:module';
 vi.mock('../src/translation-confirm',()=>({confirmLargeTranslation:vi.fn(async()=>true)}));
 import {confirmLargeTranslation} from '../src/translation-confirm';
 vi.mock('obsidian',()=>({
- Plugin:class{app:any;manifest:any;constructor(app:any,manifest:any){this.app=app;this.manifest=manifest;}async loadData(){return this.app.savedData??null;}async saveData(value:unknown){this.app.savedData=structuredClone(value);}addStatusBarItem(){return document.createElement('div');}addSettingTab(){}addCommand(){}registerEvent(){}},
+ Plugin:class{app:any;manifest:any;constructor(app:any,manifest:any){this.app=app;this.manifest=manifest;}async loadData(){return this.app.savedData??null;}async saveData(value:unknown){this.app.savedData=structuredClone(value);}addStatusBarItem(){if(this.app.mobile)throw new Error('No status bar on mobile');return document.createElement('div');}addSettingTab(){}addCommand(command:{id:string;callback:()=>void}){this.app.commands?.set(command.id,command.callback);}registerEvent(){}},
+ Platform:{isDesktopApp:true,isMobile:false},FileSystemAdapter:class{static [Symbol.hasInstance](value:unknown){return !!value&&typeof (value as {getBasePath?:unknown}).getBasePath==='function';}},normalizePath:(path:string)=>path,
  PluginSettingTab:class{},Setting:class{},Notice:class{},requestUrl:vi.fn(),parseYaml:(text:string)=>createRequire(import.meta.url)('js-yaml').load(text)
 }));
-import Manager from '../src/manager';import {requestUrl} from 'obsidian';
+import Manager from '../src/manager';import {Platform,requestUrl} from 'obsidian';
+
+test('mobile opens settings without a status bar and keeps completed translations and checkpoints in its vault',async()=>{
+ const root=document.createElement('div');root.innerHTML='<button>Open</button>';document.body.append(root);
+ const target='custom-profile/plugins/fixture/main.js';
+ const dir='custom-profile/plugins/chinese-ui-translator';
+ const files=new Map([[target,'x.setName("Open");']]);
+ const write=vi.fn(async(path:string,data:string)=>{files.set(path,data);});
+ const process=vi.fn(async(path:string,update:(data:string)=>string)=>{
+  const current=files.get(path);if(current===undefined)throw new Error('File missing');
+  const updated=update(current);files.set(path,updated);return updated;
+ });
+ const openTabById=vi.fn();
+ const commands=new Map<string,()=>void>();
+ const app:any={
+  mobile:true,commands,
+  vault:{configDir:'custom-profile',adapter:{exists:async(path:string)=>files.has(path),read:async(path:string)=>files.get(path),write,process}},
+  setting:{activeTab:{id:'fixture',containerEl:root},open:vi.fn(),openTabById},
+  plugins:{manifests:{fixture:{id:'fixture',name:'Fixture',version:'1'}}},
+  workspace:{containerEl:document.body,on:()=>({}),onLayoutReady:(f:()=>void)=>f(),iterateAllLeaves:()=>{}}
+ };
+ const platform={...Platform};
+ Platform.isDesktopApp=false;Platform.isMobile=true;
+ const request=vi.mocked(requestUrl);
+ request.mockReset();
+ request.mockResolvedValue({status:200,json:{choices:[{message:{content:'{"0":"打开"}'}}]}} as any);
+ const manifest={id:'chinese-ui-translator'} as any;
+ let plugin=new Manager(app,manifest);
+ try{
+  await plugin.onload();
+  commands.get('manage-translations')!();
+  expect(openTabById).toHaveBeenCalledWith(manifest.id);
+  await plugin.saveService('custom',{baseUrl:'https://example.invalid',model:'fixture',apiKey:'',plan:'free'});
+  await expect(plugin.translatePlugin('fixture')).resolves.toEqual({total:1,translated:1});
+  expect(root.textContent).toBe('打开');
+  expect(write.mock.calls.map(([path])=>path)).toEqual([expect.stringMatching(new RegExp('^'+dir+'/progress-')),dir+'/translations.json']);
+  expect(process.mock.calls.map(([path])=>path)).toEqual([expect.stringMatching(new RegExp('^'+dir+'/progress-'))]);
+  plugin.onunload();
+  plugin=new Manager(app,manifest);await plugin.onload();
+  expect(root.textContent).toBe('打开');
+  await plugin.setEnabled('fixture',false);expect(root.textContent).toBe('Open');
+  await plugin.setEnabled('fixture',true);expect(root.textContent).toBe('打开');
+  expect(request).toHaveBeenCalledTimes(1);
+  const catalog=dir+'/translations.json';
+  process.mockRejectedValueOnce(new Error('write failed'));
+  await expect(plugin.setEnabled('fixture',false)).rejects.toThrow('write failed');
+  expect(root.textContent).toBe('打开');
+  expect(JSON.parse(files.get(catalog)!)[0].enabled).toBe(true);
+  expect(files.get(target)).toBe('x.setName("Open");');
+ }finally{plugin.onunload();root.remove();Object.assign(Platform,platform);request.mockReset();}
+});
 
 test('restoring a Copilot dictionary also restores local adapter fallbacks without network requests',async()=>{
  const old=process.env.APPDATA;process.env.APPDATA=resolve('tests/artifacts','manager-fallback-'+Date.now());

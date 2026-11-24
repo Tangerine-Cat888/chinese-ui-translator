@@ -16,7 +16,7 @@ vi.mock('obsidian', () => {
     containerEl: HTMLElement; file = { path: 'example.md' }; mode = 'preview';
     constructor(el: HTMLElement) { this.containerEl = el; } getMode() { return this.mode; }
   }
-  return { Plugin, MarkdownView, PluginSettingTab: class {}, Setting: class {}, Notice: class {}, MarkdownRenderChild: class {}, requestUrl: vi.fn() };
+  return { Plugin, MarkdownView, Platform:{isDesktopApp:true}, PluginSettingTab: class {}, Setting: class {}, Notice: class {}, MarkdownRenderChild: class {}, requestUrl: vi.fn() };
 });
 import Assistant from '../src/legacy-main';
 import { MarkdownView, requestUrl } from 'obsidian';

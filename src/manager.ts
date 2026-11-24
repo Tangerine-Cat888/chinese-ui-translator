@@ -1,9 +1,9 @@
 import {extractTheme,themeId,ThemeUi,styleSettingsId,type ThemeSource} from './theme-settings';
 import {savePreferences,resolveProfile} from './secrets';
-import {Plugin,PluginSettingTab,Setting,Notice,SecretComponent,requireApiVersion,type PluginManifest,type SettingDefinitionItem} from 'obsidian';
-import {createHash} from 'node:crypto';
+import {Plugin,PluginSettingTab,Setting,Notice,SecretComponent,requireApiVersion,Platform,FileSystemAdapter,normalizePath,type PluginManifest,type SettingDefinitionItem} from 'obsidian';
+import {sha256Hex} from './hash';
 import {Engine,type Config,type Transport} from './core';
-import {SettingsStore} from './storage';
+import {SettingsStore,desktopTranslationFiles,mobileTranslationFiles,type TranslationFiles} from './storage';
 import {Catalog} from './catalog';
 import {extractLabels} from './scanner';
 import {LocalUi,collectUiLabels} from './local-ui';
@@ -21,7 +21,8 @@ interface Settings extends Config {uiEnabled:boolean;rememberApiKey:boolean;excl
 const defaults:Settings={endpoint:'',model:'',apiKey:'',language:'简体中文',online:false,glossary:{},uiEnabled:true,rememberApiKey:false,excludedPlugins:''};
 interface Internals {customCss?:{theme?:string};setting?:{activeTab?:{id:string;containerEl:HTMLElement};modalEl?:HTMLElement;open?:()=>void;close?:()=>void;openTabById?:(id:string)=>void};plugins:{manifests:Record<string,PluginManifest & {dir?:string}>;enabledPlugins?:Set<string>;plugins?:Record<string,unknown>};}
 export default class TranslationManager extends Plugin {
- settings:Settings={...defaults};store!:SettingsStore;catalog!:Catalog;
+ settings:Settings={...defaults};catalog!:Catalog;
+ private files!:TranslationFiles;
  preferences:Preferences=preferenceDefaults();serviceBusy=false;private preferencesReady=false;
  busyId='';progress='';private job?:AbortController;private closed=false;private stopped=false;
  private serviceJobs=new Set<AbortController>();
@@ -76,9 +77,12 @@ export default class TranslationManager extends Plugin {
    new Notice('请先停用旧版 bilingual-assistant，再启用 Chinese UI Translator；旧配置和词典会自动迁移。');
    throw new Error('旧版汉化插件仍启用，已停止加载以避免重复修改界面');
   }
-  this.store=new SettingsStore((this.app.vault.adapter as unknown as {getBasePath():string}).getBasePath());
-  this.catalog=new Catalog(this.store.directory);this.themeUi=new ThemeUi(this.catalog,this.clock);
-  try{this.preferences=await loadPreferences(this,()=>this.store.load(),async()=>{
+  const {adapter,configDir}=this.app.vault;
+  const desktop=Platform.isDesktopApp&&!Platform.isMobile;
+  const legacy=desktop&&adapter instanceof FileSystemAdapter?new SettingsStore(adapter.getBasePath()):undefined;
+  this.files=legacy?desktopTranslationFiles(legacy.directory):mobileTranslationFiles(adapter,normalizePath(this.manifest.dir||`${configDir}/plugins/${this.manifest.id}`));
+  this.catalog=new Catalog(this.files);this.themeUi=new ThemeUi(this.catalog,this.clock);
+  try{this.preferences=await loadPreferences(this,async()=>legacy?legacy.load():{},async()=>{
    if(this.manifest.id!=='chinese-ui-translator')return null;
    const oldPath=`${this.app.vault.configDir}/plugins/bilingual-assistant/data.json`;
    return await this.app.vault.adapter.exists(oldPath)?JSON.parse(await this.app.vault.adapter.read(oldPath)) as unknown:null;
@@ -87,15 +91,18 @@ export default class TranslationManager extends Plugin {
   // Migration deliberately disables the old automatic-network mode.
   this.settings.online=false;
   this.tab=new ManagerSettings(this);this.addSettingTab(this.tab);
-  this.status=this.addStatusBarItem();this.updateStatus();this.status.onclick=()=>{this.host.setting?.open?.();this.host.setting?.openTabById?.(this.manifest.id);};
-  this.addCommand({id:'manage-translations',name:'管理插件汉化',callback:()=>this.status?.click()});
+  const openSettings=()=>{this.host.setting?.open?.();this.host.setting?.openTabById?.(this.manifest.id);};
+  if(desktop){this.status=this.addStatusBarItem();this.updateStatus();this.status.onclick=openSettings;}
+  this.addCommand({id:'manage-translations',name:'管理插件汉化',callback:openSettings});
   this.addCommand({id:'toggle-ui',name:'暂停／恢复已保存汉化',callback:()=>{void this.applySettings({...this.settings,uiEnabled:!this.settings.uiEnabled}).catch((e:unknown)=>new Notice(e instanceof Error?e.message:String(e)));}});
   this.watchLifecycle();
   void this.loadTheme();
   this.registerEvent(this.app.workspace.on('css-change',()=>{void this.loadTheme();}));
   this.registerEvent(this.app.workspace.on('layout-change',()=>this.schedule()));
-  this.registerEvent(this.app.workspace.on('window-open',(_leaf,win)=>{this.watch(win.document);this.schedule();}));
-  this.registerEvent(this.app.workspace.on('window-close',(_leaf,win)=>this.release(win.document)));
+  if(desktop){
+   this.registerEvent(this.app.workspace.on('window-open',(_leaf,win)=>{this.watch(win.document);this.schedule();}));
+   this.registerEvent(this.app.workspace.on('window-close',(_leaf,win)=>this.release(win.document)));
+  }
   // The main document anchors lifecycle tracking; every popout is registered separately.
   this.app.workspace.onLayoutReady(()=>{if(!this.stopped){this.watch(this.app.workspace.containerEl.ownerDocument);this.refresh();}});
  }
@@ -172,8 +179,8 @@ export default class TranslationManager extends Plugin {
    report('正在读取当前主题配置…');const theme=await this.readTheme();
    if(!theme.entries.length)throw new Error('当前主题没有可汉化的英文 Style Settings 配置项');
    const config={...this.settings,...engineConfig(this.preferences.serviceId,resolveProfile(profileFor(this.preferences),this.app.secretStorage)),online:true};
-   const previous=this.catalog.get(id,config.language);const store=new ProgressStore(this.store.directory,id,config.language);
-   const configHash=createHash('sha256').update(JSON.stringify([this.preferences.serviceId,config.endpoint,config.model,config.language,config.glossary])).digest('hex');
+   const previous=this.catalog.get(id,config.language);const store=new ProgressStore(this.files,id,config.language);
+   const configHash=sha256Hex(JSON.stringify([this.preferences.serviceId,config.endpoint,config.model,config.language,config.glossary]));
    const loaded=await store.load();const checkpoint=loaded?.configHash===configHash?loaded:undefined;
    const strings:Record<string,string>={};
    const items:ProgressItem[]=theme.entries.map(entry=>{
@@ -209,13 +216,13 @@ export default class TranslationManager extends Plugin {
   try{
    report('正在扫描插件界面词条…');
    const path=`${manifest.dir||`${this.app.vault.configDir}/plugins/${id}`}/main.js`;
-   const source=await this.app.vault.adapter.read(path);const hash=createHash('sha256').update(source).digest('hex');
+   const source=await this.app.vault.adapter.read(path);const hash=sha256Hex(source);
    this.rememberSettings();
    const extracted=await extractLabels(source,this.names(),abort.signal);const templates=extracted.filter(text=>text.includes('⟦BA0⟧'));
    const normalize=(text:string)=>templateSource(text,templates);
    const labels=[...new Set([...extracted,...[...(this.observedLabels.get(id+'@'+manifest.version)||[])].map(normalize)])];const previous=this.catalog.get(id,language);
-   const progressStore=new ProgressStore(this.store.directory,id,language);
-   const configHash=createHash('sha256').update(JSON.stringify([this.preferences.serviceId,config.endpoint,config.model,language,config.glossary])).digest('hex');
+   const progressStore=new ProgressStore(this.files,id,language);
+   const configHash=sha256Hex(JSON.stringify([this.preferences.serviceId,config.endpoint,config.model,language,config.glossary]));
    const loaded=await progressStore.load();
    const checkpoint=loaded?.configHash===configHash?loaded:undefined;
    if(checkpoint?.sourceHash===hash)for(const item of checkpoint.items)if(!labels.includes(item.text))labels.push(item.text);
@@ -251,7 +258,7 @@ export default class TranslationManager extends Plugin {
     const failure=values.find(result=>result.status==='rejected');if(failure?.status==='rejected')throw failure.reason;
    }
    if(abort.signal.aborted||this.stopped)throw new Error('已取消翻译，已保存进度可在下次继续');
-   const currentSource=await this.app.vault.adapter.read(path);if(createHash('sha256').update(currentSource).digest('hex')!==hash)throw new Error('插件代码在汉化期间发生变化，请重新汉化');
+   const currentSource=await this.app.vault.adapter.read(path);if(sha256Hex(currentSource)!==hash)throw new Error('插件代码在汉化期间发生变化，请重新汉化');
    if(abort.signal.aborted||this.stopped)throw new Error('已取消翻译，已保存进度可在下次继续');
    await this.catalog.save({pluginId:id,version:manifest.version,sourceHash:hash,language,enabled:true,updatedAt:new Date().toISOString(),strings,contexts});
    this.stopSessions();this.refresh();const total=Object.keys(strings).length;report(`已保存 ${total} 条；新增翻译 ${missing.length} 条`);return {total,translated:missing.length};

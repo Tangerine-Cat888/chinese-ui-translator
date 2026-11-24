@@ -1,5 +1,4 @@
-import {readFile,writeFile,mkdir,rename} from 'node:fs/promises';
-import {join} from 'node:path';
+import type {TranslationFiles} from './storage';
 import {validateTranslation} from './core';
 import {isRecord} from './validation';
 import {renderNumeric} from './numeric-template';
@@ -22,13 +21,13 @@ export class Catalog {
   private packs = new Map<string,Pack>();
   private templateSources=new WeakMap<Pack,string[]>();
   private pending=Promise.resolve();
-  constructor(readonly directory:string){}
+  constructor(private files:TranslationFiles){}
   private key(id:string,language:string){return JSON.stringify([id,language]);}
   get(id:string,language:string){return this.packs.get(this.key(id,language));}
   all(){return [...this.packs.values()];}
   async load(){
-    let raw:string;
-    try{raw=await readFile(join(this.directory,'translations.json'),'utf8');}catch(e){if((e as NodeJS.ErrnoException).code==='ENOENT')return;throw e;}
+    const raw=await this.files.read('translations.json');
+    if(raw===undefined)return;
     const data:unknown=JSON.parse(raw);
     if(!Array.isArray(data))throw new Error('汉化词典格式损坏，原文件保留');
     const next=new Map<string,Pack>();
@@ -44,10 +43,8 @@ export class Catalog {
     const snapshot={...pack,strings:{...pack.strings},contexts:contexts(pack.contexts)};
     const operation=this.pending.catch(()=>{}).then(async()=>{
       const next=new Map(this.packs);next.set(this.key(snapshot.pluginId,snapshot.language),snapshot);
-      await mkdir(this.directory,{recursive:true});
-      const path=join(this.directory,'translations.json');
-      await writeFile(path+'.pending',JSON.stringify([...next.values()],null,2),'utf8');
-      await rename(path+'.pending',path);this.packs=next;
+      await this.files.write('translations.json',JSON.stringify([...next.values()],null,2));
+      this.packs=next;
     });this.pending=operation;return operation;
   }
   lookup(text:string,language:string,pluginId:string|undefined,names:Set<string>,installed:Set<string>,role?:string):string|undefined{

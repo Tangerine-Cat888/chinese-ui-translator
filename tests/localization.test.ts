@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import {test,expect} from 'vitest';
 import {resolve} from 'node:path';
+import {desktopTranslationFiles} from '../src/storage';
 import {readFile} from 'node:fs/promises';
 import {Catalog,type Pack} from '../src/catalog';
 import {extractLabels} from '../src/scanner';
@@ -84,8 +85,8 @@ test('source scanning never executes code and omits plugin names, code identifie
  expect(strings).toEqual(['Enable feature','Open dashboard','Static label']);
 });
 test('saved packs reload and can be disabled without losing the dictionary; ambiguous menus stay original',async()=>{
- const c=new Catalog(base);await c.save(pack('one',{'Open dashboard':'打开仪表盘','Calendar':'日历'}));
- const fresh=new Catalog(base);await fresh.load();
+ const c=new Catalog(desktopTranslationFiles(base));await c.save(pack('one',{'Open dashboard':'打开仪表盘','Calendar':'日历'}));
+ const fresh=new Catalog(desktopTranslationFiles(base));await fresh.load();
  const names=new Set(['Calendar']),installed=new Set(['one','two']);
  expect(fresh.lookup('Open dashboard','简体中文','one',names,installed)).toBe('打开仪表盘');
  expect(fresh.lookup('Calendar','简体中文','one',names,installed)).toBeUndefined();

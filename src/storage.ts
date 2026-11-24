@@ -1,10 +1,55 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
-import { homedir } from 'node:os';
-import { createHash } from 'node:crypto';
+import { Platform, type DataAdapter } from 'obsidian';
+import { sha256Hex } from './hash';
+
+export interface TranslationFiles {
+  read(name: string): Promise<string | undefined>;
+  write(name: string, data: string): Promise<void>;
+}
+
+function desktopRuntime() {
+  if (!Platform.isDesktopApp) throw new Error('桌面存储在此设备不可用');
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- Load only after the desktop check.
+  const fs = require('node:fs/promises') as typeof import('node:fs/promises');
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- Load only after the desktop check.
+  const paths = require('node:path') as typeof import('node:path');
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- Load only after the desktop check.
+  const os = require('node:os') as typeof import('node:os');
+  return {fs, paths, os};
+}
+
+export function desktopTranslationFiles(directory: string): TranslationFiles {
+  const {fs, paths} = desktopRuntime();
+  return {
+    async read(name) {
+      try { return await fs.readFile(paths.join(directory, name), 'utf8'); }
+      catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
+    },
+    async write(name, data) {
+      const path = paths.join(directory, name);
+      await fs.mkdir(directory, { recursive: true });
+      await fs.writeFile(path + '.pending', data, 'utf8');
+      await fs.rename(path + '.pending', path);
+    },
+  };
+}
+
+export function mobileTranslationFiles(adapter: DataAdapter, directory: string): TranslationFiles {
+  return {
+    async read(name) {
+      const path = directory + '/' + name;
+      if (await adapter.exists(path)) return adapter.read(path);
+    },
+    async write(name, data) {
+      const path = directory + '/' + name;
+      if (await adapter.exists(path)) await adapter.process(path, () => data);
+      else await adapter.write(path, data);
+    },
+  };
+}
 
 export interface SecretCipher { isEncryptionAvailable(): boolean; encryptString(value: string): Buffer; decryptString(value: Buffer): string }
 function systemCipher(): SecretCipher {
+  if (!Platform.isDesktopApp) throw new Error('旧版密钥只能在桌面端迁移');
   // Lazy desktop import: loading saved plaintext settings must not require Electron in tests.
   // eslint-disable-next-line @typescript-eslint/no-require-imports -- Electron is available only inside the desktop host; load its cipher only for legacy encrypted settings.
   const cipher = (require('@electron/remote') as {safeStorage: SecretCipher}).safeStorage;
@@ -15,12 +60,16 @@ function systemCipher(): SecretCipher {
 export class SettingsStore {
   readonly directory: string;
   private pending = Promise.resolve();
-  constructor(vaultIdentity: string, base = process.env.APPDATA || join(homedir(), '.config'), private cipher = systemCipher) {
-    this.directory = join(base, 'ObsidianBilingualAssistant', createHash('sha256').update(vaultIdentity).digest('hex').slice(0, 20));
+  private runtime = desktopRuntime();
+  constructor(vaultIdentity: string, base?: string, private cipher = systemCipher) {
+    const {paths, os} = this.runtime;
+    const config = base ?? (process.env.APPDATA || paths.join(os.homedir(), '.config'));
+    this.directory = paths.join(config, 'ObsidianBilingualAssistant', sha256Hex(vaultIdentity).slice(0, 20));
   }
   async load(): Promise<Record<string, unknown>> {
+    const {fs, paths} = this.runtime;
     try {
-      const data = JSON.parse(await readFile(join(this.directory, 'settings.json'), 'utf8')) as Record<string, unknown>;
+      const data = JSON.parse(await fs.readFile(paths.join(this.directory, 'settings.json'), 'utf8')) as Record<string, unknown>;
       if (!data || typeof data !== 'object' || Array.isArray(data)) return {};
       const { encryptedApiKey, apiKey: _ignoredPlaintext, ...settings } = data;
       if (settings.rememberApiKey === true && typeof encryptedApiKey === 'string') {
@@ -31,6 +80,7 @@ export class SettingsStore {
     catch (e) { if ((e as NodeJS.ErrnoException).code === 'ENOENT') return {}; throw new Error('配置读取失败，原文件保留；请检查配置目录'); }
   }
   save(settings: Record<string, unknown>) {
+    const {fs, paths} = this.runtime;
     const { apiKey, encryptedApiKey: _ignored, ...safe } = settings;
     if (safe.rememberApiKey === true && typeof apiKey === 'string' && apiKey) {
       const cipher = this.cipher();
@@ -38,7 +88,7 @@ export class SettingsStore {
       safe.encryptedApiKey = cipher.encryptString(apiKey).toString('base64');
     }
     const data = JSON.stringify(safe, null, 2);
-    this.pending = this.pending.catch(() => {}).then(async () => { await mkdir(this.directory, { recursive: true }); await writeFile(join(this.directory, 'settings.json'), data, { encoding: 'utf8', mode: 0o600 }); });
+    this.pending = this.pending.catch(() => {}).then(async () => { await fs.mkdir(this.directory, { recursive: true }); await fs.writeFile(paths.join(this.directory, 'settings.json'), data, { encoding: 'utf8', mode: 0o600 }); });
     return this.pending;
   }
 }

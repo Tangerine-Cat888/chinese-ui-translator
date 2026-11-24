@@ -1,5 +1,5 @@
 import {parseYaml} from 'obsidian';
-import {createHash} from 'node:crypto';
+import {sha256Hex} from './hash';
 import {isRecord} from './validation';
 import {LocalUi} from './local-ui';
 import type {Clock} from './clock';
@@ -8,7 +8,7 @@ import type {Catalog} from './catalog';
 export const styleSettingsId='obsidian-style-settings';
 export interface ThemeEntry {key:string;text:string;role:string;section:string;setting:string;context:string}
 export interface ThemeSource {id:string;name:string;hash:string;path:string;entries:ThemeEntry[];sections:string[]}
-export const themeId=(name:string)=>'theme:'+createHash('sha256').update(name).digest('hex');
+export const themeId=(name:string)=>'theme:'+sha256Hex(name);
 
 /** Read only explicit UI fields. CSS rules, defaults, identifiers and input values are never candidates. */
 export function extractTheme(source:string,name:string,path:string):ThemeSource{
@@ -36,7 +36,7 @@ export function extractTheme(source:string,name:string,path:string):ThemeSource{
   }
  }
  if(entries.length>20000)throw new Error('主题配置项过多，暂不支持');
- return {id:themeId(name),name,path,hash:createHash('sha256').update(source).digest('hex'),entries,sections:[...sections]};
+ return {id:themeId(name),name,path,hash:sha256Hex(source),entries,sections:[...sections]};
 }
 
 /** One session per identified setting row; no dictionary ever leaks into another CSS source. */

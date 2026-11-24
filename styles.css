@@ -65,6 +65,7 @@
 .ba-settings.ba-settings .setting-item::before { left: 0; right: 0; }
 .ba-settings.ba-settings .ba-settings-status .setting-item-info { flex: 1 1 auto; }
 .ba-settings.ba-settings .ba-settings-status .setting-item-control { flex: 0 0 auto; width: auto; }
+.is-mobile .ba-settings.ba-settings .ba-settings-status .setting-item-control { width: max-content; justify-content: flex-end; }
 
 /* A custom setting definition owns the whole page, not a theme setting card. */
 .setting-items.ba-settings-container { background: transparent; border: 0; border-radius: 0; box-shadow: none; padding: 0; }
@@ -76,4 +77,13 @@
  .ba-settings.ba-settings .setting-item-control { flex: 1 1 100%; width: 100%; }
  .ba-settings.ba-settings .setting-item-control :is(input[type=text], input[type=password], select) { width: 100%; flex: 1 1 180px; }
  .ba-settings.ba-settings .ba-settings-status .setting-item-control { flex: 0 0 auto; width: auto; }
+}
+@supports not (container-type: inline-size) {
+ @media (max-width: 480px) {
+  .ba-settings.ba-settings .setting-item { flex-wrap: wrap; gap: 10px; }
+  .ba-settings.ba-settings .setting-item-info { flex: 1 1 100%; }
+  .ba-settings.ba-settings .setting-item-control { flex: 1 1 100%; width: 100%; max-width: 100%; justify-content: flex-start; margin-left: 0; }
+  .ba-settings.ba-settings .ba-settings-status .setting-item { flex-wrap: nowrap; }
+  .ba-settings.ba-settings .ba-settings-status .setting-item-control { flex: 0 0 auto; width: auto; }
+ }
 }

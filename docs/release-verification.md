@@ -1,3 +1,36 @@
+# 0.5.0 独立发布验收
+
+日期：2026-11-24。Tangerine.Cat / MIT / chinese-ui-translator，最低 Obsidian 1.11.5。用户已授权按已验证范围公开发布，明确接受暂缺手机实机。
+
+## 通过
+
+- 审阅本版所有代码差异、模块及发布材料。手机 DataAdapter 存储、浏览器 SHA-256/随机数、桌面 Node 访问隔离、移动管理入口与窄屏样式；桌面继续原词典路径。正式包 21 个源码模块及 Acorn、@noble/hashes；保留模块仍纳入静态检查。
+- 94 项测试、lint 零警告、类型检查、依赖树通过；完整 audit 零漏洞（audit-current.json）。上游撤回 GHSA-fc5q-39xc-vjpf，删除旧审计例外。
+- 两个独立 npm ci 干净构建三文件及 ZIP 完全一致：reproduce-1795497534684/result.json。安装包仅标准三文件，无个人配置、凭证、词典或工具。
+- release-check 对正式 main.js 在无 process/Buffer/Node/Electron 环境执行 onload、Keychain 迁移、翻译保存、卸载重载及零请求补翻，使用自定义配置目录。
+- Windows 实际 Obsidian 1.11.5、1.12.7、1.13.4、1.14.4、1.15.1 全部通过独立安装、设置、密钥、模型、插件/主题翻译、恢复、离线及文件保护。前四版本使用 Electron 39.2.7 隔离壳。证据 final-win-*/results.json 与 final/evidence。
+- 1.15.1 完整桌面回归包含角色/数值/ARIA/Copilot、输入/事件、3001 条取消零请求、12 条检查点续译、失败重试、模型变更、损坏文件保护、旧 ID 迁移、密钥创建/选择/轮换/共享解除、弹出窗口及卸载。
+- 主题独立 17 项通过，Minimal 486 字段完成，值与事件保留；关闭窗口 34 个会话归零并可重开。证据 theme/evidence。
+- 移动模拟 1.15.1：管理入口、无状态栏、Keychain、插件和主题、恢复、取消续译、迁移/损坏保护、关闭模拟服务后冷重启离线应用通过。证据 mobile/mobile-results.json、mobile/evidence、mobile/mobile-cold-results.json。
+- 移动布局 320/390/768 无横向溢出：mobile/layout-final.json；截图 mobile/mobile-final.png 已目视确认，公开图标注桌面模拟。
+- 已备份个人插件、配置及 5 份词典：private-install-backup。发布安装及官方状态另行补记。
+
+## 测试修正与限制
+
+测试脚本旧字段引用和字符串引号、移动模拟端点配置先修正后重跑通过。布局初次采样处于动画中，等待稳定后重新验证三个宽度；不作为产品缺陷。
+
+Android/iPhone 实机、macOS/Linux、真实付费提供商未测。移动模拟不能验证 iOS WebView、触摸/软键盘、后台回收及实际同步；用户确认按此范围发布。桌面词典不会自动搬到手机，手机配置目录是否同步取决于同步工具，密钥需在设备上配置。未沿用其他插件测试或许可证结论。
+
+## 产物 SHA-256
+
+8e52948c6e4fbeabd19365799de60560455315075d2f0ca1d7098b87bda9c18c  dist/chinese-ui-translator/main.js
+a1a9edc39de3d630b6e6bcdad517084f8815058739942fda08f551d727aeae44  dist/chinese-ui-translator/manifest.json
+41f739c7231edada78f33191b2e6933bcae2769ac619bde4a1c67660f42b35a0  dist/chinese-ui-translator/styles.css
+6736439616838433c51e3759465a8d22a8a1f5e63f0f977799245338d69eaf94  dist/chinese-ui-translator-0.5.0.zip
+
+
+---
+
 # 0.4.1 独立发布验收
 
 日期：2026-11-18。作者 Tangerine.Cat，MIT，插件 ID chinese-ui-translator。沿用本聊天的公开推送、发行、官方审核及升级授权；不含个人配置与词典。
