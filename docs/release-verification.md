@@ -29,6 +29,17 @@ a1a9edc39de3d630b6e6bcdad517084f8815058739942fda08f551d727aeae44  dist/chinese-u
 6736439616838433c51e3759465a8d22a8a1f5e63f0f977799245338d69eaf94  dist/chinese-ui-translator-0.5.0.zip
 
 
+## 公开发布与个人升级回读
+
+- 通过：源提交及 0.5.0 tag 为 a61b81cc2943ca98bfe98b50af16e8f3812c7f0c，远端回读一致。GitHub 主分支 CI 45333565078、标签 CI 45333579423 成功。
+- 通过：修复 CI 的 Node 20 弃用警告，将 checkout/setup-node/upload-artifact 更新至官方 Node 24 版本并固定提交；标签构建 annotations 为 0。证据 actions-upgrade.json。
+- 通过：CI、两次干净构建、本地与草稿四附件哈希相同；main.js/styles.css 构建来源证明验证通过。草稿回读数量、大小、状态及 digest 后公开，再下载四附件验证。证据 ci-comparison.json、attestation-*.json、draft-verified.json、published.json。
+- 通过：[GitHub 0.5.0](https://github.com/Tangerine-Cat888/chinese-ui-translator/releases/tag/0.5.0) 已公开；明确 Android/iPhone 实机、macOS/Linux、真实付费服务未测。
+- 通过：个人库由 0.4.1 升级 0.5.0，仅覆盖下载验证后的三个程序文件。正常启用、配置/目录 ready、5 份词典、Keychain 引用有效、无明文 key、无捕获错误；配置/词典/主题/启用列表哈希未变。实际设置页、当前 Still 主题 108 字段正常。证据 personal-install.json、personal-ui-smoke.json；完整备份留存在 private-install-backup。
+- 未测：官方 0.5.0 扫描结果、目录更新及客户端搜索。官方管理页面操作被浏览器工具缺失组件 browser/26.1117.41037/scripts/browser-service.mjs 阻塞，连接与重置重试均在加载工具时失败。没有执行官方页面写入，不将 GitHub 发布视为审核通过。新版 961 字详情和移动模拟截图已准备在 docs/marketplace-description-en.txt、docs/screenshots/mobile-emulation-0.5.0.png；恢复工具后继续提交并回读。证据 official-status.json。
+
+所有本版测试使用独立证据；保留备份与验收材料，未删除其他工作文件，未更新共享记忆。
+
 ---
 
 # 0.4.1 独立发布验收
