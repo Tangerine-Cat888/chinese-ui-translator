@@ -1,3 +1,13 @@
+# 0.5.1 独立发布验收
+
+2026-11-24。桌面环境判断只调整了 Node 模块加载位置。独立宿主验证旧桌面路径预置词典能够离线加载。Windows Obsidian 1.11.5、1.12.7、1.13.4、1.14.4、1.15.1 回归通过。桌面和移动模拟覆盖插件与主题汉化、Keychain、取消续译、损坏保护及离线使用。移动模拟包含冷重启及三个屏宽。Android/iPhone 实机、macOS/Linux 和真实付费服务未测。
+
+两次按锁文件干净构建与 GitHub CI 的四个附件完全一致，94 项测试、lint、类型检查、依赖树和完整审计通过。官方对 5337445 的扫描状态为 Completed，main.js 逐字节复现。0.5.0 的三项 Node 模块导入警告全部消除，0 个错误。唯一保留的 Warning 是桌面访问库外词典。两项建议涉及手工安装 ZIP 与旧宿主的设置入口。公开目录已显示 0.5.1，客户端搜索可找到插件。个人库升级后 5 份词典与原配置通过哈希比对。
+
+[官方目录](https://community.obsidian.md/plugins/chinese-ui-translator) · [GitHub Release](https://github.com/Tangerine-Cat888/chinese-ui-translator/releases/tag/0.5.1)
+
+---
+
 # 0.5.0 独立发布验收
 
 日期：2026-11-24。Tangerine.Cat / MIT / chinese-ui-translator，最低 Obsidian 1.11.5。用户已授权按已验证范围公开发布，明确接受暂缺手机实机。
