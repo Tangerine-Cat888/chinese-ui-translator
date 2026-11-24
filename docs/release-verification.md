@@ -36,7 +36,10 @@ a1a9edc39de3d630b6e6bcdad517084f8815058739942fda08f551d727aeae44  dist/chinese-u
 - 通过：CI、两次干净构建、本地与草稿四附件哈希相同；main.js/styles.css 构建来源证明验证通过。草稿回读数量、大小、状态及 digest 后公开，再下载四附件验证。证据 ci-comparison.json、attestation-*.json、draft-verified.json、published.json。
 - 通过：[GitHub 0.5.0](https://github.com/Tangerine-Cat888/chinese-ui-translator/releases/tag/0.5.0) 已公开；明确 Android/iPhone 实机、macOS/Linux、真实付费服务未测。
 - 通过：个人库由 0.4.1 升级 0.5.0，仅覆盖下载验证后的三个程序文件。正常启用、配置/目录 ready、5 份词典、Keychain 引用有效、无明文 key、无捕获错误；配置/词典/主题/启用列表哈希未变。实际设置页、当前 Still 主题 108 字段正常。证据 personal-install.json、personal-ui-smoke.json；完整备份留存在 private-install-backup。
-- 未测：官方 0.5.0 扫描结果、目录更新及客户端搜索。官方管理页面操作被浏览器工具缺失组件 browser/26.1117.41037/scripts/browser-service.mjs 阻塞，连接与重置重试均在加载工具时失败。没有执行官方页面写入，不将 GitHub 发布视为审核通过。新版 961 字详情和移动模拟截图已准备在 docs/marketplace-description-en.txt、docs/screenshots/mobile-emulation-0.5.0.png；恢复工具后继续提交并回读。证据 official-status.json。
+- 通过。2026-11-24 官方扫描已从 Pending 转为 Completed，对应提交 a61b81c。[官方详情页](https://community.obsidian.md/plugins/chinese-ui-translator)显示当前版本 0.5.0。公开 About 与 961 字符送审文案一致，桌面图库 5 张，手机图库 1 张。已在窄屏公开页目视确认新增的移动模拟截图。Android 和 iPhone 实机未测。
+- 扫描无 Error。官方逐字节复现 main.js，验证 main.js 和 styles.css 的来源证明，未发现依赖漏洞、可疑网络模式或代码混淆。
+- 官方保留 4 项 Warning。桌面库外词典的文件访问触发 1 项行为提示，另 3 项源码提示指向 src/storage.ts 的 fs/promises、path、os。复核该标签代码，桌面环境检查先于 require，移动端由 src/manager.ts 选择 DataAdapter。无 Node 的成品测试及移动模拟通过。2 项 Recommendation 分别涉及手工安装 ZIP 和旧宿主需要的 display 接口。
+- 本版审核证据见 official-completed.txt、official-review.jpg，目录与图库证据见 official-public.txt、official-mobile-listing.jpg。客户端内目录搜索未单独验证。
 
 所有本版测试使用独立证据；保留备份与验收材料，未删除其他工作文件，未更新共享记忆。
 
