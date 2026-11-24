@@ -8,13 +8,16 @@ export interface TranslationFiles {
 
 function desktopRuntime() {
   if (!Platform.isDesktopApp) throw new Error('桌面存储在此设备不可用');
-  // eslint-disable-next-line @typescript-eslint/no-require-imports -- Load only after the desktop check.
-  const fs = require('node:fs/promises') as typeof import('node:fs/promises');
-  // eslint-disable-next-line @typescript-eslint/no-require-imports -- Load only after the desktop check.
-  const paths = require('node:path') as typeof import('node:path');
-  // eslint-disable-next-line @typescript-eslint/no-require-imports -- Load only after the desktop check.
-  const os = require('node:os') as typeof import('node:os');
-  return {fs, paths, os};
+  if (Platform.isDesktop) {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- Load only after the desktop check.
+    const fs = require('node:fs/promises') as typeof import('node:fs/promises');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- Load only after the desktop check.
+    const paths = require('node:path') as typeof import('node:path');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- Load only after the desktop check.
+    const os = require('node:os') as typeof import('node:os');
+    return {fs, paths, os};
+  }
+  throw new Error('移动界面请使用 Obsidian 文件接口');
 }
 
 export function desktopTranslationFiles(directory: string): TranslationFiles {

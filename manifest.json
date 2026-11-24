@@ -1,7 +1,7 @@
 {
   "id": "chinese-ui-translator",
   "name": "Chinese UI Translator",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "minAppVersion": "1.11.5",
   "description": "Translate plugin interfaces and current-theme Style Settings into Simplified Chinese with offline dictionaries, preserving original files and setting values.",
   "author": "Tangerine.Cat",

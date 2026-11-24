@@ -20,7 +20,7 @@ const module={exports:{}};
 const mobileFiles=new Map(),secrets=new Map();
 let mobileData=null,requests=0;
 const mobileApi={
- Platform:{isDesktopApp:false,isMobile:true},normalizePath:path=>path,
+ Platform:{isDesktop:false,isDesktopApp:false,isMobile:true},normalizePath:path=>path,
  Plugin:class{
   constructor(app,manifest){this.app=app;this.manifest=manifest;}
   async loadData(){return mobileData;}

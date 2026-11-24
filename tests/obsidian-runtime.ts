@@ -1,2 +1,2 @@
 // Obsidian ships runtime exports only inside its app. Tests provide an explicit host fixture.
-export const Platform = {isDesktopApp:true};
+export const Platform = {isDesktop:true,isDesktopApp:true};

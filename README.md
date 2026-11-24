@@ -2,7 +2,7 @@
 
 Translate recognizable English plugin interface labels and the current theme’s Style Settings labels into Simplified Chinese, then reuse saved dictionaries offline. Plugin names, input values, notes and plugin source files are preserved.
 
-**Author:** Tangerine.Cat · **License:** MIT · **Version:** 0.5.0 · **Requires:** Obsidian 1.11.5 or later · Mobile support: desktop emulation verified; Android and iPhone devices untested.
+**Author:** Tangerine.Cat · **License:** MIT · **Version:** 0.5.1 · **Requires:** Obsidian 1.11.5 or later · Mobile support: desktop emulation verified; Android and iPhone devices untested.
 
 0.3.5 adds role-aware dictionaries, labels observed while visiting plugin settings, and restricted numeric templates. Visit the target settings page first, then explicitly translate or supplement its labels. Browsing alone sends no requests; unprocessed observations remain only in memory. Numeric templates support at most three simple numeric values in known UI calls, and only apply in a confirmed plugin area. Unknown or conflicting contexts remain unchanged.
 
@@ -53,7 +53,7 @@ Screenshots use a separate test vault and simulated content, with no personal no
 
 按需将插件界面与当前主题的 Style Settings 配置项汉化为简体中文，保存词典后离线应用，保留名称与原始文件。
 
-作者：Tangerine.Cat · MIT · 版本 0.5.0 · Obsidian 1.11.5+ · 手机适配已通过桌面移动模拟；Android 和 iPhone 实机未测。
+作者：Tangerine.Cat · MIT · 版本 0.5.1 · Obsidian 1.11.5+ · 手机适配已通过桌面移动模拟；Android 和 iPhone 实机未测。
 
 ![插件汉化管理](docs/screenshots/overview-light.png)
 

@@ -6,7 +6,7 @@ vi.mock('../src/translation-confirm',()=>({confirmLargeTranslation:vi.fn(async()
 import {confirmLargeTranslation} from '../src/translation-confirm';
 vi.mock('obsidian',()=>({
  Plugin:class{app:any;manifest:any;constructor(app:any,manifest:any){this.app=app;this.manifest=manifest;}async loadData(){return this.app.savedData??null;}async saveData(value:unknown){this.app.savedData=structuredClone(value);}addStatusBarItem(){if(this.app.mobile)throw new Error('No status bar on mobile');return document.createElement('div');}addSettingTab(){}addCommand(command:{id:string;callback:()=>void}){this.app.commands?.set(command.id,command.callback);}registerEvent(){}},
- Platform:{isDesktopApp:true,isMobile:false},FileSystemAdapter:class{static [Symbol.hasInstance](value:unknown){return !!value&&typeof (value as {getBasePath?:unknown}).getBasePath==='function';}},normalizePath:(path:string)=>path,
+ Platform:{isDesktop:true,isDesktopApp:true,isMobile:false},FileSystemAdapter:class{static [Symbol.hasInstance](value:unknown){return !!value&&typeof (value as {getBasePath?:unknown}).getBasePath==='function';}},normalizePath:(path:string)=>path,
  PluginSettingTab:class{},Setting:class{},Notice:class{},requestUrl:vi.fn(),parseYaml:(text:string)=>createRequire(import.meta.url)('js-yaml').load(text)
 }));
 import Manager from '../src/manager';import {Platform,requestUrl} from 'obsidian';
@@ -31,7 +31,7 @@ test('mobile opens settings without a status bar and keeps completed translation
   workspace:{containerEl:document.body,on:()=>({}),onLayoutReady:(f:()=>void)=>f(),iterateAllLeaves:()=>{}}
  };
  const platform={...Platform};
- Platform.isDesktopApp=false;Platform.isMobile=true;
+ Platform.isDesktop=false;Platform.isDesktopApp=false;Platform.isMobile=true;
  const request=vi.mocked(requestUrl);
  request.mockReset();
  request.mockResolvedValue({status:200,json:{choices:[{message:{content:'{"0":"打开"}'}}]}} as any);
